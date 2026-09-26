@@ -5,10 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Swimming Lions – Spielesammlung</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦁</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<meta name="robots" content="noindex, nofollow">
 <style>
+  /* Bricolage Grotesque (SIL OFL 1.1), selbst ausgeliefert statt von Google Fonts */
+  @font-face {
+    font-family: "Bricolage Grotesque";
+    font-weight: 200 800;
+    font-display: swap;
+    src: url(fonts/bricolage-grotesque.woff2) format("woff2");
+  }
   :root {
     --wasser: #7fd6e0;
     --fliese: #f3fbfc;
@@ -145,6 +150,7 @@
   .spiel.bald .knopf { background: transparent; color: var(--tinte-weich); border: 2px dashed var(--tinte-weich); }
 
   footer { padding: 0 0 40px; color: var(--tinte-weich); font-size: .95rem; }
+  footer a { color: inherit; }
 
   @media (prefers-reduced-motion: reduce) {
     .spiel { transition: none; }
@@ -163,7 +169,7 @@
 
     <main class="gitter" id="gitter" aria-label="Spiele"></main>
 
-    <footer>© <span id="jahr"></span> Swimming Lions</footer>
+    <footer>© <span id="jahr"></span> Swimming Lions · Privates Hobbyprojekt · <a href="datenschutz.html">Datenschutz</a></footer>
   </div>
 
 <script>
