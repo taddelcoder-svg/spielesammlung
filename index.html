@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Swimming Lions – Spielesammlung</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦁</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --wasser: #7fd6e0;
+    --fliese: #f3fbfc;
+    --fuge: #c4e6eb;
+    --tinte: #13315c;
+    --tinte-weich: #3d5a80;
+    --leine-rot: #e2463b;
+    --leine-gelb: #f6c343;
+    --karte: #ffffff;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --wasser: #1f6f86;
+      --fliese: #0e2a44;
+      --fuge: #183b5c;
+      --tinte: #eaf6f8;
+      --tinte-weich: #a9c4d6;
+      --karte: #13345a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --wasser: #1f6f86;
+    --fliese: #0e2a44;
+    --fuge: #183b5c;
+    --tinte: #eaf6f8;
+    --tinte-weich: #a9c4d6;
+    --karte: #13345a;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--tinte);
+    background-color: var(--fliese);
+    /* Schwimmbad-Fliesen */
+    background-image:
+      linear-gradient(var(--fuge) 2px, transparent 2px),
+      linear-gradient(90deg, var(--fuge) 2px, transparent 2px);
+    background-size: 44px 44px;
+    min-height: 100vh;
+  }
+  img { max-width: 100%; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* Kopfbereich */
+  header { padding: 56px 0 28px; }
+  .studio {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 1rem; color: var(--tinte-weich);
+  }
+  .studio span { font-size: 1.5rem; }
+  h1 {
+    margin: 14px 0 0;
+    font-size: clamp(2.8rem, 9vw, 6.2rem);
+    font-weight: 800;
+    line-height: .92;
+    letter-spacing: -0.035em;
+  }
+  .intro {
+    max-width: 52ch;
+    font-size: 1.15rem;
+    line-height: 1.5;
+    color: var(--tinte-weich);
+    margin: 18px 0 0;
+  }
+
+  /* Bahnleine als Trenner */
+  .leine {
+    height: 14px;
+    margin: 36px 0 40px;
+    border-radius: 7px;
+    background: repeating-linear-gradient(90deg,
+      var(--leine-rot) 0 26px,
+      #ffffff 26px 34px,
+      var(--leine-gelb) 34px 60px,
+      #ffffff 60px 68px);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.15);
+  }
+
+  /* Spielegitter */
+  .gitter {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 22px;
+    padding-bottom: 72px;
+  }
+  .spiel {
+    display: flex; flex-direction: column;
+    background: var(--karte);
+    border: 3px solid var(--tinte);
+    border-radius: 18px;
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 6px 6px 0 var(--wasser);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  a.spiel:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 var(--wasser); }
+  a.spiel:active { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--wasser); }
+  a.spiel:focus-visible { outline: 4px solid var(--leine-gelb); outline-offset: 4px; }
+
+  .icon {
+    width: 84px; height: 84px;
+    display: grid; place-items: center;
+    border-radius: 20px;
+    background: var(--farbe, var(--wasser));
+    font-size: 2.8rem;
+    overflow: hidden;
+    border: 3px solid var(--tinte);
+  }
+  .icon img { width: 100%; height: 100%; object-fit: cover; }
+
+  .spiel h2 { margin: 18px 0 6px; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+  .spiel p { margin: 0; line-height: 1.45; color: var(--tinte-weich); flex: 1; }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 18px; }
+  .tag {
+    font-size: .85rem; font-weight: 600;
+    padding: 3px 10px; border-radius: 99px;
+    background: var(--fliese); border: 2px solid var(--fuge);
+  }
+  .knopf {
+    align-self: flex-start;
+    font-weight: 800; font-size: 1.05rem;
+    padding: 10px 20px; border-radius: 12px;
+    background: var(--tinte); color: var(--karte);
+  }
+  .spiel.bald { opacity: .65; }
+  .spiel.bald .knopf { background: transparent; color: var(--tinte-weich); border: 2px dashed var(--tinte-weich); }
+
+  footer { padding: 0 0 40px; color: var(--tinte-weich); font-size: .95rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spiel { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="studio"><span aria-hidden="true">🦁</span> Swimming Lions</div>
+      <h1>Spielesammlung</h1>
+      <p class="intro">Alle unsere Browserspiele an einem Ort. Such dir eins aus und spring rein.</p>
+    </header>
+
+    <div class="leine" role="presentation"></div>
+
+    <main class="gitter" id="gitter" aria-label="Spiele"></main>
+
+    <footer>© <span id="jahr"></span> Swimming Lions</footer>
+  </div>
+
+<script>
+/* =========================================================
+   SPIELE-LISTE – hier neue Spiele eintragen
+   ---------------------------------------------------------
+   name:         Titel des Spiels
+   beschreibung: 1–2 Sätze
+   icon:         Emoji ("🏙️") ODER Bildpfad ("icons/lifesim.png")
+   farbe:        Hintergrundfarbe hinter dem Icon
+   tags:         kurze Stichworte
+   link:         Adresse des Spiels – leer lassen = "Bald verfügbar"
+   neuerTab:     true = öffnet in neuem Tab
+   ========================================================= */
+const SPIELE = [
+  {
+    name: "LifeSim",
+    beschreibung: "Leb dein eigenes Leben in einer 3D-Stadt – gemeinsam mit anderen Spielern online.",
+    icon: "🏙️",
+    farbe: "#f6c343",
+    tags: ["Multiplayer", "3D", "Lebenssimulation"],
+    link: "https://lifesim-842c.onrender.com",
+    neuerTab: false
+  },
+  {
+    name: "Blaue Stunde",
+    beschreibung: "Nachtfahrt auf der Autobahn: Weich dem Verkehr aus – je knapper das Manöver, desto mehr Punkte.",
+    icon: "🚗",
+    farbe: "#4a6fd6",
+    tags: ["Einzelspieler", "3D", "Rennspiel"],
+    link: "https://blauestunde.onrender.com",
+    neuerTab: false
+  }
+];
+
+/* ---------- ab hier nichts ändern ---------- */
+const gitter = document.getElementById("gitter");
+
+function istBild(icon) {
+  return /\.(png|jpe?g|webp|gif|svg)$/i.test(icon) || icon.startsWith("data:") || icon.startsWith("http");
+}
+
+function escape(text) {
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+SPIELE.forEach(spiel => {
+  const hatLink = spiel.link && spiel.link.trim() !== "";
+  const el = document.createElement(hatLink ? "a" : "div");
+  el.className = "spiel" + (hatLink ? "" : " bald");
+
+  if (hatLink) {
+    el.href = spiel.link;
+    if (spiel.neuerTab) { el.target = "_blank"; el.rel = "noopener"; }
+  }
+
+  const iconInhalt = istBild(spiel.icon)
+    ? `<img src="${escape(spiel.icon)}" alt="">`
+    : `<span aria-hidden="true">${escape(spiel.icon)}</span>`;
+
+  el.innerHTML = `
+    <div class="icon" style="--farbe:${escape(spiel.farbe || "")}">${iconInhalt}</div>
+    <h2>${escape(spiel.name)}</h2>
+    <p>${escape(spiel.beschreibung)}</p>
+    <div class="tags">${(spiel.tags || []).map(t => `<span class="tag">${escape(t)}</span>`).join("")}</div>
+    <span class="knopf">${hatLink ? "Spielen" : "Bald verfügbar"}</span>
+  `;
+  gitter.appendChild(el);
+});
+
+document.getElementById("jahr").textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
