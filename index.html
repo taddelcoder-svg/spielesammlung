@@ -149,6 +149,22 @@
   .spiel.bald { opacity: .65; }
   .spiel.bald .knopf { background: transparent; color: var(--tinte-weich); border: 2px dashed var(--tinte-weich); }
 
+
+  /* Update-Fenster */
+  .updates {
+    background: var(--karte);
+    border: 3px solid var(--tinte);
+    border-radius: 18px;
+    padding: 16px 20px;
+    margin: 0 0 28px;
+    box-shadow: 6px 6px 0 var(--leine-gelb);
+  }
+  .updates h2 { margin: 0 0 8px; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em; }
+  .updates ul { list-style: none; margin: 0; padding: 0; }
+  .updates li { display: flex; gap: 12px; padding: 6px 0; line-height: 1.4; border-top: 2px solid var(--fuge); }
+  .updates li:first-child { border-top: 0; }
+  .updates time { flex: none; font-weight: 700; color: var(--tinte-weich); font-variant-numeric: tabular-nums; }
+
   footer { padding: 0 0 40px; color: var(--tinte-weich); font-size: .95rem; }
   footer a { color: inherit; }
 
@@ -167,12 +183,25 @@
 
     <div class="leine" role="presentation"></div>
 
+    <section class="updates" aria-labelledby="updatesTitel">
+      <h2 id="updatesTitel">🆕 Updates</h2>
+      <ul id="updates"></ul>
+    </section>
+
     <main class="gitter" id="gitter" aria-label="Spiele"></main>
 
     <footer>© <span id="jahr"></span> Swimming Lions · Privates Hobbyprojekt · <a href="datenschutz.html">Datenschutz</a></footer>
   </div>
 
 <script>
+/* =========================================================
+   UPDATES – neueste zuerst, je Eintrag 1 kurzer Satz
+   ========================================================= */
+const UPDATES = [
+  { datum: "08.10.2026", text: "Iron Horizon wurde aus der Sammlung entfernt." },
+  { datum: "08.10.2026", text: "Blaue Stunde: Tagesfahrt, Baustellen, Nebel, Polizei-Verfolgung und zwei neue Autos." }
+];
+
 /* =========================================================
    SPIELE-LISTE – hier neue Spiele eintragen
    ---------------------------------------------------------
@@ -348,6 +377,13 @@ SPIELE.forEach(spiel => {
     <span class="knopf">${hatLink ? "Spielen" : "Bald verfügbar"}</span>
   `;
   gitter.appendChild(el);
+});
+
+const updateListe = document.getElementById("updates");
+UPDATES.slice(0, 5).forEach(u => {
+  const li = document.createElement("li");
+  li.innerHTML = `<time>${escape(u.datum)}</time><span>${escape(u.text)}</span>`;
+  updateListe.appendChild(li);
 });
 
 document.getElementById("jahr").textContent = new Date().getFullYear();
