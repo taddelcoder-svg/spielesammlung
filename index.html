@@ -23,6 +23,19 @@
     --leine-rot: #e2463b;
     --leine-gelb: #f6c343;
     --karte: #ffffff;
+    /* Design-Tokens */
+    --akzent: #13315c;
+    --akzent-2: #1c8fa3;
+    --erfolg: #1f8a4c;
+    --warnung: #b7791f;
+    --gefahr: #c2332b;
+    --rand: rgba(19,49,92,.14);
+    --rand-stark: rgba(19,49,92,.28);
+    --glas: rgba(255,255,255,.72);
+    --schatten: 0 1px 2px rgba(19,49,92,.08), 0 4px 10px rgba(19,49,92,.06), 0 14px 32px rgba(19,49,92,.08);
+    --schatten-hoch: 0 2px 4px rgba(19,49,92,.10), 0 10px 20px rgba(19,49,92,.10), 0 24px 48px rgba(19,49,92,.14);
+    --glanz: rgba(255,255,255,.9);
+    --radius: 18px;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -35,6 +48,17 @@
       --tinte: #eaf6f8;
       --tinte-weich: #a9c4d6;
       --karte: #13345a;
+      --akzent: #7fd6e0;
+      --akzent-2: #5ec3d3;
+      --erfolg: #5fd38d;
+      --warnung: #f6c343;
+      --gefahr: #ff7b72;
+      --rand: rgba(234,246,248,.14);
+      --rand-stark: rgba(234,246,248,.30);
+      --glas: rgba(19,52,90,.72);
+      --schatten: 0 1px 2px rgba(0,0,0,.30), 0 4px 10px rgba(0,0,0,.22), 0 14px 32px rgba(0,0,0,.28);
+      --schatten-hoch: 0 2px 4px rgba(0,0,0,.35), 0 10px 20px rgba(0,0,0,.30), 0 24px 48px rgba(0,0,0,.40);
+      --glanz: rgba(255,255,255,.08);
     }
   }
   :root[data-theme="dark"] {
@@ -44,6 +68,17 @@
     --tinte: #eaf6f8;
     --tinte-weich: #a9c4d6;
     --karte: #13345a;
+    --akzent: #7fd6e0;
+    --akzent-2: #5ec3d3;
+    --erfolg: #5fd38d;
+    --warnung: #f6c343;
+    --gefahr: #ff7b72;
+    --rand: rgba(234,246,248,.14);
+    --rand-stark: rgba(234,246,248,.30);
+    --glas: rgba(19,52,90,.72);
+    --schatten: 0 1px 2px rgba(0,0,0,.30), 0 4px 10px rgba(0,0,0,.22), 0 14px 32px rgba(0,0,0,.28);
+    --schatten-hoch: 0 2px 4px rgba(0,0,0,.35), 0 10px 20px rgba(0,0,0,.30), 0 24px 48px rgba(0,0,0,.40);
+    --glanz: rgba(255,255,255,.08);
   }
   *, *::before, *::after { box-sizing: inherit; }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -52,124 +87,215 @@
     font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
     color: var(--tinte);
     background-color: var(--fliese);
-    /* Schwimmbad-Fliesen */
+    /* Wasserlicht oben + Schwimmbad-Fliesen */
     background-image:
-      linear-gradient(var(--fuge) 2px, transparent 2px),
-      linear-gradient(90deg, var(--fuge) 2px, transparent 2px);
-    background-size: 44px 44px;
+      radial-gradient(900px 420px at 15% -80px, color-mix(in srgb, var(--wasser) 45%, transparent), transparent 70%),
+      linear-gradient(var(--fuge) 1.5px, transparent 1.5px),
+      linear-gradient(90deg, var(--fuge) 1.5px, transparent 1.5px);
+    background-size: auto, 44px 44px, 44px 44px;
+    background-repeat: no-repeat, repeat, repeat;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
   img { max-width: 100%; }
 
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  .wrap {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 max(20px, env(safe-area-inset-right, 0px)) 0 max(20px, env(safe-area-inset-left, 0px));
+  }
 
   /* Kopfbereich */
-  header { padding: 56px 0 28px; }
+  header { padding: 48px 0 24px; animation: rein .35s ease both; }
   .studio {
-    display: inline-flex; align-items: center; gap: 10px;
-    font-weight: 600; font-size: 1rem; color: var(--tinte-weich);
+    display: inline-flex; align-items: center; gap: 8px;
+    font-weight: 700; font-size: .95rem; color: var(--tinte-weich);
+    padding: 6px 14px 6px 10px; border-radius: 99px;
+    background: var(--glas); border: 1px solid var(--rand);
+    box-shadow: var(--schatten);
   }
-  .studio span { font-size: 1.5rem; }
+  .studio span { font-size: 1.3rem; line-height: 1; }
   h1 {
-    margin: 14px 0 0;
+    margin: 18px 0 0;
     font-size: clamp(2.8rem, 9vw, 6.2rem);
     font-weight: 800;
     line-height: .92;
     letter-spacing: -0.035em;
+    background: linear-gradient(100deg, var(--tinte) 35%, var(--akzent-2) 140%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: var(--tinte);
+    padding-bottom: .06em;
   }
   .intro {
     max-width: 52ch;
     font-size: 1.15rem;
     line-height: 1.5;
     color: var(--tinte-weich);
-    margin: 18px 0 0;
+    margin: 16px 0 0;
+  }
+  .anzahl {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin: 20px 0 0; padding: 6px 14px; min-height: 32px;
+    border-radius: 99px; font-weight: 700; font-size: .92rem;
+    background: var(--glas); border: 1px solid var(--rand);
+    color: var(--tinte); font-variant-numeric: tabular-nums;
+  }
+  .anzahl::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--erfolg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--erfolg) 25%, transparent);
   }
 
   /* Bahnleine als Trenner */
   .leine {
-    height: 14px;
-    margin: 36px 0 40px;
-    border-radius: 7px;
+    height: 12px;
+    margin: 28px 0 32px;
+    border-radius: 6px;
     background: repeating-linear-gradient(90deg,
       var(--leine-rot) 0 26px,
       #ffffff 26px 34px,
       var(--leine-gelb) 34px 60px,
       #ffffff 60px 68px);
-    box-shadow: inset 0 -3px 0 rgba(0,0,0,.15);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.15), 0 2px 6px rgba(19,49,92,.15);
   }
 
   /* Spielegitter */
   .gitter {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 22px;
-    padding-bottom: 72px;
+    gap: 20px;
+    padding-bottom: 64px;
   }
   .spiel {
+    position: relative;
     display: flex; flex-direction: column;
     background: var(--karte);
-    border: 3px solid var(--tinte);
-    border-radius: 18px;
+    border: 1px solid var(--rand);
+    border-radius: var(--radius);
     padding: 20px;
     text-decoration: none;
     color: inherit;
-    box-shadow: 6px 6px 0 var(--wasser);
-    transition: transform .15s ease, box-shadow .15s ease;
+    box-shadow: var(--schatten);
+    overflow: hidden;
+    isolation: isolate;
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    animation: rein .4s ease both;
+    animation-delay: calc(var(--i, 0) * 35ms + 80ms);
   }
-  a.spiel:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 var(--wasser); }
-  a.spiel:active { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--wasser); }
-  a.spiel:focus-visible { outline: 4px solid var(--leine-gelb); outline-offset: 4px; }
+  /* Farbiger Schimmer aus der Spielfarbe */
+  .spiel::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 110px; z-index: -1;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--farbe, var(--wasser)) 26%, transparent), transparent);
+    opacity: .9;
+  }
+  .spiel::after {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; z-index: 0;
+    background: var(--farbe, var(--wasser));
+  }
+  a.spiel:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--schatten-hoch);
+    border-color: color-mix(in srgb, var(--farbe, var(--wasser)) 60%, var(--rand-stark));
+  }
+  a.spiel:active { transform: translateY(-1px) scale(.99); box-shadow: var(--schatten); }
+  a.spiel:focus-visible { outline: 3px solid var(--akzent); outline-offset: 3px; }
 
   .icon {
-    width: 84px; height: 84px;
+    width: 76px; height: 76px;
     display: grid; place-items: center;
     border-radius: 20px;
-    background: var(--farbe, var(--wasser));
-    font-size: 2.8rem;
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,0) 55%),
+      var(--farbe, var(--wasser));
+    font-size: 2.6rem;
     overflow: hidden;
-    border: 3px solid var(--tinte);
+    border: 1px solid rgba(0,0,0,.12);
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--farbe, var(--wasser)) 40%, transparent), inset 0 1px 0 rgba(255,255,255,.5);
+    transition: transform .25s ease;
   }
+  a.spiel:hover .icon { transform: rotate(-4deg) scale(1.05); }
   .icon img { width: 100%; height: 100%; object-fit: cover; }
 
-  .spiel h2 { margin: 18px 0 6px; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+  .spiel h2 { margin: 16px 0 6px; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
   .spiel p { margin: 0; line-height: 1.45; color: var(--tinte-weich); flex: 1; }
 
   .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 18px; }
   .tag {
-    font-size: .85rem; font-weight: 600;
+    font-size: .8rem; font-weight: 600;
     padding: 3px 10px; border-radius: 99px;
-    background: var(--fliese); border: 2px solid var(--fuge);
+    background: var(--fliese); border: 1px solid var(--rand);
+    color: var(--tinte);
   }
   .knopf {
     align-self: flex-start;
-    font-weight: 800; font-size: 1.05rem;
-    padding: 10px 20px; border-radius: 12px;
+    display: inline-flex; align-items: center; gap: 8px;
+    min-height: 44px;
+    font-weight: 800; font-size: 1.02rem;
+    padding: 0 18px 0 20px; border-radius: 12px;
     background: var(--tinte); color: var(--karte);
+    box-shadow: 0 2px 6px rgba(19,49,92,.25);
+    transition: background .2s ease, gap .2s ease;
   }
-  .spiel.bald { opacity: .65; }
-  .spiel.bald .knopf { background: transparent; color: var(--tinte-weich); border: 2px dashed var(--tinte-weich); }
-
+  .knopf svg { width: 16px; height: 16px; flex: none; transition: transform .2s ease; }
+  a.spiel:hover .knopf { background: var(--akzent-2); color: #fff; }
+  a.spiel:hover .knopf svg { transform: translateX(3px); }
+  .spiel.bald { box-shadow: none; border-style: dashed; border-color: var(--rand-stark); background: transparent; }
+  .spiel.bald .knopf { background: transparent; color: var(--tinte-weich); border: 1.5px dashed var(--tinte-weich); box-shadow: none; }
 
   /* Update-Fenster */
   .updates {
+    position: relative;
     background: var(--karte);
-    border: 3px solid var(--tinte);
-    border-radius: 18px;
-    padding: 16px 20px;
+    border: 1px solid var(--rand);
+    border-radius: var(--radius);
+    padding: 18px 22px 12px;
     margin: 0 0 28px;
-    box-shadow: 6px 6px 0 var(--leine-gelb);
+    box-shadow: var(--schatten);
+    overflow: hidden;
+    animation: rein .4s ease both; animation-delay: 40ms;
   }
-  .updates h2 { margin: 0 0 8px; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em; }
+  .updates::before {
+    content: ""; position: absolute; inset: 0 auto 0 0; width: 5px;
+    background: linear-gradient(180deg, var(--leine-gelb), var(--leine-rot));
+  }
+  .updates h2 {
+    display: flex; align-items: center; gap: 8px;
+    margin: 0 0 6px; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em;
+  }
   .updates ul { list-style: none; margin: 0; padding: 0; }
-  .updates li { display: flex; gap: 12px; padding: 6px 0; line-height: 1.4; border-top: 2px solid var(--fuge); }
+  .updates li {
+    display: flex; gap: 14px; padding: 10px 0; line-height: 1.4;
+    border-top: 1px solid var(--rand);
+  }
   .updates li:first-child { border-top: 0; }
-  .updates time { flex: none; font-weight: 700; color: var(--tinte-weich); font-variant-numeric: tabular-nums; }
+  .updates time {
+    flex: none; align-self: flex-start;
+    font-weight: 700; font-size: .85rem; color: var(--tinte-weich);
+    font-variant-numeric: tabular-nums;
+    padding: 2px 10px; border-radius: 99px;
+    background: var(--fliese); border: 1px solid var(--rand);
+    margin-top: 1px;
+  }
+  .updates li.neu time { background: var(--leine-gelb); border-color: transparent; color: #13315c; }
+  .updates li.neu time::after { content: " · neu"; font-weight: 800; }
 
   footer { padding: 0 0 40px; color: var(--tinte-weich); font-size: .95rem; }
-  footer a { color: inherit; }
+  footer a { color: inherit; text-underline-offset: 3px; border-radius: 4px; }
+  footer a:hover { color: var(--tinte); }
+  footer a:focus-visible { outline: 3px solid var(--akzent); outline-offset: 3px; }
 
+  @keyframes rein {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @media (max-width: 520px) {
+    header { padding-top: 32px; }
+    .updates { padding: 16px 16px 8px 20px; }
+    .updates li { flex-direction: column; gap: 4px; }
+    .gitter { gap: 16px; }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .spiel { transition: none; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    a.spiel:hover, a.spiel:active { transform: none; }
   }
 </style>
 </head>
@@ -179,6 +305,7 @@
       <div class="studio"><span aria-hidden="true">🦁</span> Swimming Lions</div>
       <h1>Spielesammlung</h1>
       <p class="intro">Alle unsere Browserspiele an einem Ort. Such dir eins aus und spring rein.</p>
+      <div class="anzahl" id="anzahl" hidden></div>
     </header>
 
     <div class="leine" role="presentation"></div>
@@ -198,6 +325,8 @@
    UPDATES – neueste zuerst, je Eintrag 1 kurzer Satz
    ========================================================= */
 const UPDATES = [
+  { datum: "12.10.2026", text: "Olympiade: Schanzenlöwe, Quaderland, Fischfieber und Iron Horizon sind jetzt Disziplinen, dazu ein neues Hub-Design." },
+  { datum: "12.10.2026", text: "Neues Design für Löwen-Kart, Weltenbummler, Weltreiche, Futbolero, Pinguin Türmchen, Ringfieber, Löwenküche, Schanzenlöwe, Quaderland, Fischfieber, Iron Horizon und Epochen: einheitliche Menüs, HUD und Ergebnisbildschirme." },
   { datum: "10.10.2026", text: "Pingu Towers heißt jetzt Pinguin Türmchen. LifeSim wurde aus der Sammlung entfernt." },
   { datum: "09.10.2026", text: "Löwen-Kart: Cups jetzt auch online mit Freunden, mit Punkten nach jedem Rennen und Pokal am Ende." },
   { datum: "09.10.2026", text: "Löwen-Kart: alle Strecken sind jetzt echte Rennstrecken nach F1-Vorbild, mit Curbs, Kiesbett und Startampel." },
@@ -372,10 +501,14 @@ function escape(text) {
   return d.innerHTML;
 }
 
-SPIELE.forEach(spiel => {
+const PFEIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+SPIELE.forEach((spiel, i) => {
   const hatLink = spiel.link && spiel.link.trim() !== "";
   const el = document.createElement(hatLink ? "a" : "div");
   el.className = "spiel" + (hatLink ? "" : " bald");
+  el.style.setProperty("--i", Math.min(i, 12));
+  if (spiel.farbe) el.style.setProperty("--farbe", spiel.farbe);
 
   if (hatLink) {
     el.href = spiel.link;
@@ -391,17 +524,23 @@ SPIELE.forEach(spiel => {
     <h2>${escape(spiel.name)}</h2>
     <p>${escape(spiel.beschreibung)}</p>
     <div class="tags">${(spiel.tags || []).map(t => `<span class="tag">${escape(t)}</span>`).join("")}</div>
-    <span class="knopf">${hatLink ? "Spielen" : "Bald verfügbar"}</span>
+    <span class="knopf">${hatLink ? "Spielen" + PFEIL : "Bald verfügbar"}</span>
   `;
   gitter.appendChild(el);
 });
 
 const updateListe = document.getElementById("updates");
-UPDATES.slice(0, 5).forEach(u => {
+UPDATES.slice(0, 5).forEach((u, i) => {
   const li = document.createElement("li");
+  if (i === 0) li.className = "neu";
   li.innerHTML = `<time>${escape(u.datum)}</time><span>${escape(u.text)}</span>`;
   updateListe.appendChild(li);
 });
+
+const anzahlEl = document.getElementById("anzahl");
+const anzahlSpiele = SPIELE.filter(sp => sp.link && sp.link.trim() !== "").length;
+anzahlEl.textContent = anzahlSpiele + (anzahlSpiele === 1 ? " Spiel" : " Spiele") + " zum Losspielen";
+anzahlEl.hidden = false;
 
 document.getElementById("jahr").textContent = new Date().getFullYear();
 </script>
