@@ -12,6 +12,20 @@
   var API = new URL(me.src).origin;
   var KEY = 'sl_name';
 
+  // Diagnose: Spiel mit ?sldebug=1 öffnen, dann zeigt eine kleine Anzeige, was der Melder tut
+  var DEBUG = /[?&]sldebug/.test(location.search), zeilen = [], tafel = null;
+  function dbg(text) {
+    if (!DEBUG) return;
+    zeilen.push(new Date().toLocaleTimeString() + ' ' + text); zeilen = zeilen.slice(-8);
+    if (!document.body) return;
+    if (!tafel) {
+      tafel = document.createElement('pre');
+      tafel.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:2147483647;margin:0;padding:6px 8px;max-width:90vw;white-space:pre-wrap;font:11px/1.3 monospace;background:rgba(0,0,0,.8);color:#7fff7f;border-radius:6px;pointer-events:none';
+      document.body.appendChild(tafel);
+    }
+    tafel.textContent = 'Melder · ' + SPIEL + '\n' + zeilen.join('\n');
+  }
+
   function lesen() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
   function schreiben(n) { try { localStorage.setItem(KEY, n); } catch (e) {} }
 
@@ -34,7 +48,8 @@
       return null;
     }
     return fetch(API + pfad, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body, keepalive: true })
-      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); dbg('OK ' + pfad + ' ' + body.slice(0, 90)); return r.json(); })
+      .catch(function (e) { dbg('FEHLER ' + pfad + ' ' + (e && e.message)); throw e; });
   }
 
   // Erst als gesendet merken, wenn der Server geantwortet hat (der kostenlose Server schläft
@@ -63,7 +78,7 @@
     if (typeof w.zeitAlt === 'number' && isFinite(w.zeitAlt)) offen.zeitAlt = Math.max(offen.zeitAlt || 0, w.zeitAlt);
   }
   function adapterLesen() {
-    try { if (typeof window.SLRangAdapter === 'function') melde(window.SLRangAdapter()); } catch (e) {}
+    try { if (typeof window.SLRangAdapter === 'function') { var a = window.SLRangAdapter(); dbg('Spielstand ' + JSON.stringify(a)); melde(a); } else dbg('kein Adapter (nur Spielzeit)'); } catch (e) { dbg('Adapter-Fehler ' + e.message); }
   }
 
   // Spielzeit: jede Sekunde, in der die Seite sichtbar ist
@@ -112,7 +127,9 @@
     } catch (e) {}
     return false;
   }
-  function start() { if (!name) { if (!inOlymp()) wahlZeigen(); } else { var pr = post('/api/spieler', { name: name }); if (pr) pr.catch(function () {}); } }
+  function start() {
+    dbg('gestartet, Name: ' + (name || '(keiner)') + ', Dienst: ' + API);
+     if (!name) { if (!inOlymp()) wahlZeigen(); } else { var pr = post('/api/spieler', { name: name }); if (pr) pr.catch(function () {}); } }
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 
   window.SLRang = { melde: function (w) { melde(w); }, spiel: SPIEL };
