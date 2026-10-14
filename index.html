@@ -381,7 +381,7 @@
    UPDATES – neueste zuerst, je Eintrag 1 kurzer Satz
    ========================================================= */
 const UPDATES = [
-  { datum: "14.10.2026", text: "Neu: Ranglisten mit Punkten, Spielzeit und Progress pro Spiel plus Gesamtwertung." },
+  { datum: "14.10.2026", text: "Neu: Live-Ranglisten mit Punkten, Spielzeit und Progress pro Spiel plus Gesamtwertung, direkt aus den Spielen." },
   { datum: "13.10.2026", text: "Neu in der Sammlung: Knastknacker – Gefängnisausbruch solo oder online bis 10." },
   { datum: "13.10.2026", text: "Neue 3D-Optik: Karts, Items, Boxer, Panzer, Pinguine, Fische, Spieler, Tiere, Gebäude und Welten sehen deutlich besser aus, mit Licht, Himmel, Wasser und Effekten." },
   { datum: "12.10.2026", text: "Olympiade: Schanzenlöwe, Quaderland, Fischfieber und Iron Horizon sind jetzt Disziplinen, dazu ein neues Hub-Design." },
@@ -614,61 +614,58 @@ document.getElementById("jahr").textContent = new Date().getFullYear();
 </script>
 <script>
 /* =========================================================
-   RANGLISTEN – pro Spiel (Punkte, Spielzeit, Progress) + Gesamt
-   Alles wird auf diesem Gerät gespeichert (localStorage).
-   Spielzeit: zählt automatisch von „Spielen“ bis zur Rückkehr auf diese Seite.
+   RANGLISTEN – live vom Rangliste-Dienst (rangliste-server/)
+   Die Spiele melden Spielzeit, Punkte und Progress selbst (melder.js).
+   Die Sammlung zeigt nur an und gibt beim Start den Namen mit.
    ========================================================= */
+const RANG_API = "";   // Adresse des Rangliste-Dienstes, z. B. "https://rangliste-sl.onrender.com"
 (function(){
-  var KEY = 'sl_rangliste_v1', MAX_SEK = 4 * 3600;
-  var daten = { spieler: [], aktiv: '', spiele: {}, laufend: null };
-  try { var g = JSON.parse(localStorage.getItem(KEY)); if (g && typeof g === 'object') daten = Object.assign(daten, g); } catch (e) {}
-  function speichern(){ try { localStorage.setItem(KEY, JSON.stringify(daten)); } catch (e) {} }
-  function eintrag(spiel, name){
-    var s = daten.spiele[spiel] || (daten.spiele[spiel] = {});
-    return s[name] || (s[name] = { punkte: 0, progress: 0, zeit: 0 });
-  }
+  var KEY = 'sl_name', AKTUALISIEREN_MS = 15000;
+  var daten = { spieler: [], werte: {} }, name = '', ansicht = 'Gesamt', timer = null;
+  try { name = localStorage.getItem(KEY) || ''; } catch (e) {}
+  var dlg = document.getElementById('rangDialog'), anzeige = document.getElementById('rangAnzeige'),
+      tabs = document.getElementById('rangTabs'), wahl = document.getElementById('rangSpieler'),
+      knopf = document.getElementById('rangOeffnen');
+  var spieleNamen = SPIELE.filter(function(s){ return s.link && s.link.trim(); }).map(function(s){ return s.name; });
+
+  if (!RANG_API) { knopf.hidden = true; return; }
+
+  // Beim Start eines Spiels den Namen mitgeben, damit das Spiel weiß, wer spielt
+  document.getElementById('gitter').addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a.spiel');
+    if (!a || !name) return;
+    try { var u = new URL(a.href); u.searchParams.set('sl', name); a.href = u.toString(); } catch (f) {}
+  }, true);
+
+  var fmt = function(n){ return Number(n).toLocaleString('de-DE'); };
   function zeitText(sek){
-    sek = Math.round(sek);
+    sek = Math.round(sek || 0);
     if (sek < 60) return sek + ' s';
     var m = Math.floor(sek / 60), h = Math.floor(m / 60);
     return h ? h + ' h ' + (m % 60) + ' min' : m + ' min';
   }
-  var fmt = function(n){ return Number(n).toLocaleString('de-DE'); };
-
-  // Spielzeit verbuchen, wenn man von einem Spiel zurückkommt
-  function verbuchen(){
-    var l = daten.laufend;
-    if (!l) return;
-    daten.laufend = null;
-    var sek = Math.min(MAX_SEK, Math.max(0, (Date.now() - l.start) / 1000));
-    if (l.spieler && sek >= 5) eintrag(l.spiel, l.spieler).zeit += sek;
-    speichern();
-  }
-  verbuchen();
-  addEventListener('pageshow', function(){ try { var g = JSON.parse(localStorage.getItem(KEY)); if (g) daten = Object.assign(daten, g); } catch (e) {} verbuchen(); if (dlg.open) zeigen(); });
-
-  document.getElementById('gitter').addEventListener('click', function(e){
-    var a = e.target.closest && e.target.closest('a.spiel');
-    if (!a || !daten.aktiv) return;
-    daten.laufend = { spiel: a.querySelector('h2').textContent, spieler: daten.aktiv, start: Date.now() };
-    speichern();
-  });
-
-  var dlg = document.getElementById('rangDialog'), anzeige = document.getElementById('rangAnzeige'),
-      tabs = document.getElementById('rangTabs'), wahl = document.getElementById('rangSpieler'),
-      ansicht = 'Gesamt';
-  var spieleNamen = SPIELE.filter(function(s){ return s.link && s.link.trim(); }).map(function(s){ return s.name; });
-
   function el(tag, text, klasse){ var e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (klasse) e.className = klasse; return e; }
   function zelle(tr, text, klasse){ var td = el('td', text, klasse); tr.appendChild(td); return td; }
   function kopf(spalten){ var t = el('table', undefined, 'rang-tabelle'), tr = document.createElement('tr'); spalten.forEach(function(s){ tr.appendChild(el('th', s)); }); var h = document.createElement('thead'); h.appendChild(tr); t.appendChild(h); return t; }
+  function balken(proz){
+    var w = el('span'), b = el('span', undefined, 'balken'), i = document.createElement('i');
+    i.style.width = Math.max(0, Math.min(100, proz)) + '%'; b.appendChild(i); w.appendChild(b); w.appendChild(document.createTextNode(Math.round(proz) + ' %'));
+    return w;
+  }
+  var zeitVon = function(e){ return (e.zeit || 0) + (e.zeitAlt || 0); };
+
+  function laden(){
+    return fetch(RANG_API + '/api/rangliste', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(function(j){
+      daten = { spieler: j.spieler || [], werte: j.werte || {} }; anzeigeFehler = false;
+    }).catch(function(){ anzeigeFehler = true; });
+  }
+  var anzeigeFehler = false;
 
   function spielerListe(){
     wahl.textContent = '';
-    if (!daten.spieler.length) { var o = el('option', 'Erst Namen anlegen'); o.value = ''; wahl.appendChild(o); }
-    daten.spieler.forEach(function(n){ var o = el('option', n); o.value = n; if (n === daten.aktiv) o.selected = true; wahl.appendChild(o); });
+    var o0 = el('option', name ? 'Ich bin …' : 'Name wählen …'); o0.value = ''; wahl.appendChild(o0);
+    daten.spieler.slice().sort().forEach(function(n){ var o = el('option', n); o.value = n; if (n === name) o.selected = true; wahl.appendChild(o); });
   }
-
   function tabsBauen(){
     tabs.textContent = '';
     var b = el('button', '🏆 Gesamt', 'rang-tab'); b.type = 'button'; b.setAttribute('aria-pressed', ansicht === 'Gesamt');
@@ -685,11 +682,10 @@ document.getElementById("jahr").textContent = new Date().getFullYear();
     var rp = {}, zeit = {}, prog = {};
     daten.spieler.forEach(function(n){ rp[n] = 0; zeit[n] = 0; prog[n] = []; });
     spieleNamen.forEach(function(sp){
-      var s = daten.spiele[sp] || {};
-      var mit = daten.spieler.filter(function(n){ return s[n] && s[n].punkte > 0; })
-        .sort(function(a, b){ return s[b].punkte - s[a].punkte; });
+      var s = daten.werte[sp] || {};
+      var mit = daten.spieler.filter(function(n){ return s[n] && s[n].punkte > 0; }).sort(function(a, b){ return s[b].punkte - s[a].punkte; });
       mit.forEach(function(n, i){ rp[n] += mit.length - i; });
-      daten.spieler.forEach(function(n){ if (s[n]) { zeit[n] += s[n].zeit || 0; if (s[n].progress > 0) prog[n].push(s[n].progress); } });
+      daten.spieler.forEach(function(n){ if (s[n]) { zeit[n] += zeitVon(s[n]); if (s[n].progress > 0) prog[n].push(s[n].progress); } });
     });
     return daten.spieler.map(function(n){
       var p = prog[n];
@@ -697,60 +693,52 @@ document.getElementById("jahr").textContent = new Date().getFullYear();
     }).sort(function(a, b){ return b.rp - a.rp || b.zeit - a.zeit; });
   }
 
-  function balken(proz){
-    var w = el('span'), b = el('span', undefined, 'balken'), i = document.createElement('i');
-    i.style.width = Math.max(0, Math.min(100, proz)) + '%'; b.appendChild(i); w.appendChild(b); w.appendChild(document.createTextNode(Math.round(proz) + ' %'));
-    return w;
-  }
-
   function zeigen(){
     tabsBauen(); spielerListe(); anzeige.textContent = '';
-    if (!daten.spieler.length) { anzeige.appendChild(el('p', 'Lege oben einen Namen an, dann kannst du Ranglisten sehen und dich eintragen.', 'rang-leer')); return; }
+    if (anzeigeFehler) anzeige.appendChild(el('p', 'Die Rangliste ist gerade nicht erreichbar. Beim ersten Aufruf nach einer Pause kann der Server ein paar Sekunden zum Aufwachen brauchen.', 'rang-hinweis'));
+    if (!daten.spieler.length) { if (!anzeigeFehler) anzeige.appendChild(el('p', 'Noch niemand dabei. Lege oben einen Namen an und spiel ein Spiel, dann taucht dein Name hier auf.', 'rang-leer')); return; }
     if (ansicht === 'Gesamt') {
       var t = kopf(['Platz', 'Spieler', 'Rangpunkte', 'Spielzeit', 'Ø Progress']);
       gesamt().forEach(function(z, i){
-        var tr = document.createElement('tr'); if (z.name === daten.aktiv) tr.className = 'ich';
+        var tr = document.createElement('tr'); if (z.name === name) tr.className = 'ich';
         zelle(tr, i + 1, 'platz'); zelle(tr, z.name); zelle(tr, z.rp); zelle(tr, zeitText(z.zeit)); zelle(tr, '').appendChild(balken(z.progress));
         t.appendChild(tr);
       });
       anzeige.appendChild(t);
-      anzeige.appendChild(el('p', 'Rangpunkte: In jedem Spiel bekommt der Beste so viele Punkte wie Mitspieler mit einem Ergebnis, der Zweite einen weniger usw. Wer in vielen Spielen vorne liegt, gewinnt.', 'rang-hinweis'));
+      anzeige.appendChild(el('p', 'Rangpunkte: In jedem Spiel bekommt der Beste so viele Punkte wie Mitspieler mit einem Ergebnis, der Zweite einen weniger usw. Die Werte kommen direkt aus den Spielen und aktualisieren sich alle paar Sekunden.', 'rang-hinweis'));
       return;
     }
-    var s = daten.spiele[ansicht] || {};
-    var zeilen = daten.spieler.map(function(n){ var e = s[n] || { punkte: 0, progress: 0, zeit: 0 }; return { name: n, punkte: e.punkte, progress: e.progress, zeit: e.zeit }; })
+    var s = daten.werte[ansicht] || {};
+    var zeilen = daten.spieler.filter(function(n){ return s[n]; }).map(function(n){ var e = s[n]; return { name: n, punkte: e.punkte || 0, progress: e.progress || 0, zeit: zeitVon(e) }; })
       .sort(function(a, b){ return b.punkte - a.punkte || b.zeit - a.zeit; });
+    if (!zeilen.length) { anzeige.appendChild(el('p', 'In ' + ansicht + ' hat noch niemand etwas gemeldet.', 'rang-leer')); return; }
     var tab = kopf(['Platz', 'Spieler', 'Punkte', 'Spielzeit', 'Progress']);
     zeilen.forEach(function(z, i){
-      var tr = document.createElement('tr'); if (z.name === daten.aktiv) tr.className = 'ich';
+      var tr = document.createElement('tr'); if (z.name === name) tr.className = 'ich';
       zelle(tr, i + 1, 'platz'); zelle(tr, z.name); zelle(tr, fmt(z.punkte)); zelle(tr, zeitText(z.zeit)); zelle(tr, '').appendChild(balken(z.progress));
       tab.appendChild(tr);
     });
     anzeige.appendChild(tab);
-    if (daten.aktiv) {
-      var f = el('div', undefined, 'rang-zeile'); f.style.marginTop = '16px';
-      var p = el('input'); p.type = 'number'; p.min = 0; p.placeholder = 'Punkte'; p.setAttribute('aria-label', 'Punkte');
-      var g = el('input'); g.type = 'number'; g.min = 0; g.max = 100; g.placeholder = 'Progress %'; g.setAttribute('aria-label', 'Progress in Prozent');
-      var ok = el('button', 'Für ' + daten.aktiv + ' eintragen', 'rang-tab'); ok.type = 'button';
-      ok.onclick = function(){
-        var e = eintrag(ansicht, daten.aktiv);
-        if (p.value !== '') e.punkte = Math.max(e.punkte, Math.max(0, Math.round(+p.value) || 0));
-        if (g.value !== '') e.progress = Math.max(e.progress, Math.min(100, Math.max(0, +g.value || 0)));
-        speichern(); zeigen();
-      };
-      f.appendChild(p); f.appendChild(g); f.appendChild(ok); anzeige.appendChild(f);
-      anzeige.appendChild(el('p', 'Punkte und Progress zählen als Bestwert: ein niedrigerer Wert überschreibt nichts.', 'rang-hinweis'));
-    }
   }
 
+  function nameSetzen(n){
+    name = n; try { localStorage.setItem(KEY, n); } catch (e) {}
+    zeigen();
+  }
   document.getElementById('rangNeuOk').onclick = function(){
     var i = document.getElementById('rangNeu'), n = i.value.trim().slice(0, 16);
-    if (!n) return;
-    if (daten.spieler.indexOf(n) < 0) daten.spieler.push(n);
-    daten.aktiv = n; i.value = ''; speichern(); zeigen();
+    if (n.length < 2) return;
+    fetch(RANG_API + '/api/spieler', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: n }) })
+      .then(function(r){ return r.json(); }).then(function(j){ if (j.ok) { i.value = ''; return laden().then(function(){ nameSetzen(j.name); }); } });
   };
-  wahl.onchange = function(){ daten.aktiv = wahl.value; speichern(); zeigen(); };
-  document.getElementById('rangOeffnen').onclick = function(){ zeigen(); dlg.showModal(); };
+  wahl.onchange = function(){ if (wahl.value) nameSetzen(wahl.value); };
+  knopf.onclick = function(){
+    dlg.showModal(); zeigen();
+    laden().then(zeigen);
+    timer = setInterval(function(){ laden().then(zeigen); }, AKTUALISIEREN_MS);
+  };
+  function zu(){ clearInterval(timer); }
+  dlg.addEventListener('close', zu);
   document.getElementById('rangZu').onclick = function(){ dlg.close(); };
   dlg.addEventListener('click', function(e){ if (e.target === dlg) dlg.close(); });
 })();
