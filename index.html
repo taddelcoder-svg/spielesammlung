@@ -618,7 +618,7 @@ document.getElementById("jahr").textContent = new Date().getFullYear();
    Die Spiele melden Spielzeit, Punkte und Progress selbst (melder.js).
    Die Sammlung zeigt nur an und gibt beim Start den Namen mit.
    ========================================================= */
-const RANG_API = "";   // Adresse des Rangliste-Dienstes, z. B. "https://rangliste-sl.onrender.com"
+const RANG_API = "https://rangliste-aoee.onrender.com";   // Adresse des Rangliste-Dienstes, z. B. "https://rangliste-sl.onrender.com"
 (function(){
   var KEY = 'sl_name', AKTUALISIEREN_MS = 15000;
   var daten = { spieler: [], werte: {} }, name = '', ansicht = 'Gesamt', timer = null;
