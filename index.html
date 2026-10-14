@@ -277,6 +277,44 @@
   .updates li.neu time { background: var(--leine-gelb); border-color: transparent; color: #13315c; }
   .updates li.neu time::after { content: " · neu"; font-weight: 800; }
 
+  /* Ranglisten */
+  .rang-knopf {
+    display: inline-flex; align-items: center; gap: 8px; margin: 20px 0 0 8px;
+    min-height: 44px; padding: 0 18px; border-radius: 12px; border: 0; cursor: pointer;
+    font: inherit; font-weight: 800; font-size: 1rem;
+    background: var(--leine-gelb); color: #13315c; box-shadow: 0 2px 6px rgba(19,49,92,.25);
+  }
+  .rang-knopf:focus-visible, .rang-tab:focus-visible, .rang-zu:focus-visible { outline: 3px solid var(--akzent); outline-offset: 3px; }
+  dialog.rang {
+    width: min(720px, calc(100vw - 24px)); max-height: calc(100vh - 24px);
+    padding: 0; border: 1px solid var(--rand); border-radius: var(--radius);
+    background: var(--karte); color: var(--tinte); box-shadow: var(--schatten-hoch);
+  }
+  dialog.rang::backdrop { background: rgba(10,25,45,.55); }
+  .rang-kopf { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--rand); }
+  .rang-kopf h2 { margin: 0; font-size: 1.3rem; font-weight: 800; }
+  .rang-zu { min-width: 44px; min-height: 44px; border: 1px solid var(--rand); border-radius: 12px; background: var(--fliese); color: var(--tinte); font: inherit; font-size: 1.2rem; cursor: pointer; }
+  .rang-inhalt { padding: 16px 20px 20px; overflow: auto; max-height: calc(100vh - 110px); }
+  .rang-zeile { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
+  .rang-zeile select, .rang-zeile input {
+    min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--rand-stark);
+    background: var(--fliese); color: var(--tinte); font: inherit;
+  }
+  .rang-zeile input { width: 7.5em; }
+  .rang-tab {
+    min-height: 44px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--rand);
+    background: var(--fliese); color: var(--tinte); font: inherit; font-weight: 700; cursor: pointer;
+  }
+  .rang-tab[aria-pressed="true"] { background: var(--tinte); color: var(--karte); }
+  table.rang-tabelle { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .rang-tabelle th, .rang-tabelle td { padding: 10px 8px; text-align: left; border-top: 1px solid var(--rand); }
+  .rang-tabelle th { font-size: .8rem; color: var(--tinte-weich); border-top: 0; }
+  .rang-tabelle td.platz { font-weight: 800; width: 3em; }
+  .rang-tabelle tr.ich td { background: color-mix(in srgb, var(--leine-gelb) 22%, transparent); }
+  .rang-leer, .rang-hinweis { color: var(--tinte-weich); line-height: 1.45; margin: 8px 0 0; font-size: .92rem; }
+  .balken { display: inline-block; width: 70px; height: 8px; border-radius: 4px; background: var(--fuge); vertical-align: middle; overflow: hidden; margin-right: 6px; }
+  .balken i { display: block; height: 100%; background: var(--erfolg); }
+
   footer { padding: 0 0 40px; color: var(--tinte-weich); font-size: .95rem; }
   footer a { color: inherit; text-underline-offset: 3px; border-radius: 4px; }
   footer a:hover { color: var(--tinte); }
@@ -306,6 +344,7 @@
       <h1>Spielesammlung</h1>
       <p class="intro">Alle unsere Browserspiele an einem Ort. Such dir eins aus und spring rein.</p>
       <div class="anzahl" id="anzahl" hidden></div>
+      <button type="button" class="rang-knopf" id="rangOeffnen"><span aria-hidden="true">🏆</span> Ranglisten</button>
     </header>
 
     <div class="leine" role="presentation"></div>
@@ -320,11 +359,29 @@
     <footer>© <span id="jahr"></span> Swimming Lions · Privates Hobbyprojekt · <a href="datenschutz.html">Datenschutz</a></footer>
   </div>
 
+  <dialog class="rang" id="rangDialog" aria-labelledby="rangTitel">
+    <div class="rang-kopf">
+      <h2 id="rangTitel">🏆 Ranglisten</h2>
+      <button type="button" class="rang-zu" id="rangZu" aria-label="Schließen">✕</button>
+    </div>
+    <div class="rang-inhalt">
+      <div class="rang-zeile">
+        <label for="rangSpieler">Ich bin:</label>
+        <select id="rangSpieler" aria-label="Spieler wählen"></select>
+        <input id="rangNeu" type="text" maxlength="16" placeholder="Neuer Name" aria-label="Neuer Spielername">
+        <button type="button" class="rang-tab" id="rangNeuOk">Hinzufügen</button>
+      </div>
+      <div class="rang-zeile" id="rangTabs" role="group" aria-label="Rangliste wählen"></div>
+      <div id="rangAnzeige"></div>
+    </div>
+  </dialog>
+
 <script>
 /* =========================================================
    UPDATES – neueste zuerst, je Eintrag 1 kurzer Satz
    ========================================================= */
 const UPDATES = [
+  { datum: "14.10.2026", text: "Neu: Ranglisten mit Punkten, Spielzeit und Progress pro Spiel plus Gesamtwertung." },
   { datum: "13.10.2026", text: "Neu in der Sammlung: Knastknacker – Gefängnisausbruch solo oder online bis 10." },
   { datum: "13.10.2026", text: "Neue 3D-Optik: Karts, Items, Boxer, Panzer, Pinguine, Fische, Spieler, Tiere, Gebäude und Welten sehen deutlich besser aus, mit Licht, Himmel, Wasser und Effekten." },
   { datum: "12.10.2026", text: "Olympiade: Schanzenlöwe, Quaderland, Fischfieber und Iron Horizon sind jetzt Disziplinen, dazu ein neues Hub-Design." },
@@ -554,6 +611,149 @@ anzahlEl.textContent = anzahlSpiele + (anzahlSpiele === 1 ? " Spiel" : " Spiele"
 anzahlEl.hidden = false;
 
 document.getElementById("jahr").textContent = new Date().getFullYear();
+</script>
+<script>
+/* =========================================================
+   RANGLISTEN – pro Spiel (Punkte, Spielzeit, Progress) + Gesamt
+   Alles wird auf diesem Gerät gespeichert (localStorage).
+   Spielzeit: zählt automatisch von „Spielen“ bis zur Rückkehr auf diese Seite.
+   ========================================================= */
+(function(){
+  var KEY = 'sl_rangliste_v1', MAX_SEK = 4 * 3600;
+  var daten = { spieler: [], aktiv: '', spiele: {}, laufend: null };
+  try { var g = JSON.parse(localStorage.getItem(KEY)); if (g && typeof g === 'object') daten = Object.assign(daten, g); } catch (e) {}
+  function speichern(){ try { localStorage.setItem(KEY, JSON.stringify(daten)); } catch (e) {} }
+  function eintrag(spiel, name){
+    var s = daten.spiele[spiel] || (daten.spiele[spiel] = {});
+    return s[name] || (s[name] = { punkte: 0, progress: 0, zeit: 0 });
+  }
+  function zeitText(sek){
+    sek = Math.round(sek);
+    if (sek < 60) return sek + ' s';
+    var m = Math.floor(sek / 60), h = Math.floor(m / 60);
+    return h ? h + ' h ' + (m % 60) + ' min' : m + ' min';
+  }
+  var fmt = function(n){ return Number(n).toLocaleString('de-DE'); };
+
+  // Spielzeit verbuchen, wenn man von einem Spiel zurückkommt
+  function verbuchen(){
+    var l = daten.laufend;
+    if (!l) return;
+    daten.laufend = null;
+    var sek = Math.min(MAX_SEK, Math.max(0, (Date.now() - l.start) / 1000));
+    if (l.spieler && sek >= 5) eintrag(l.spiel, l.spieler).zeit += sek;
+    speichern();
+  }
+  verbuchen();
+  addEventListener('pageshow', function(){ try { var g = JSON.parse(localStorage.getItem(KEY)); if (g) daten = Object.assign(daten, g); } catch (e) {} verbuchen(); if (dlg.open) zeigen(); });
+
+  document.getElementById('gitter').addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a.spiel');
+    if (!a || !daten.aktiv) return;
+    daten.laufend = { spiel: a.querySelector('h2').textContent, spieler: daten.aktiv, start: Date.now() };
+    speichern();
+  });
+
+  var dlg = document.getElementById('rangDialog'), anzeige = document.getElementById('rangAnzeige'),
+      tabs = document.getElementById('rangTabs'), wahl = document.getElementById('rangSpieler'),
+      ansicht = 'Gesamt';
+  var spieleNamen = SPIELE.filter(function(s){ return s.link && s.link.trim(); }).map(function(s){ return s.name; });
+
+  function el(tag, text, klasse){ var e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (klasse) e.className = klasse; return e; }
+  function zelle(tr, text, klasse){ var td = el('td', text, klasse); tr.appendChild(td); return td; }
+  function kopf(spalten){ var t = el('table', undefined, 'rang-tabelle'), tr = document.createElement('tr'); spalten.forEach(function(s){ tr.appendChild(el('th', s)); }); var h = document.createElement('thead'); h.appendChild(tr); t.appendChild(h); return t; }
+
+  function spielerListe(){
+    wahl.textContent = '';
+    if (!daten.spieler.length) { var o = el('option', 'Erst Namen anlegen'); o.value = ''; wahl.appendChild(o); }
+    daten.spieler.forEach(function(n){ var o = el('option', n); o.value = n; if (n === daten.aktiv) o.selected = true; wahl.appendChild(o); });
+  }
+
+  function tabsBauen(){
+    tabs.textContent = '';
+    var b = el('button', '🏆 Gesamt', 'rang-tab'); b.type = 'button'; b.setAttribute('aria-pressed', ansicht === 'Gesamt');
+    b.onclick = function(){ ansicht = 'Gesamt'; zeigen(); };
+    tabs.appendChild(b);
+    var s = document.createElement('select'); s.setAttribute('aria-label', 'Spiel wählen');
+    var o0 = el('option', 'Einzelnes Spiel …'); o0.value = ''; s.appendChild(o0);
+    spieleNamen.forEach(function(n){ var o = el('option', n); o.value = n; if (n === ansicht) o.selected = true; s.appendChild(o); });
+    s.onchange = function(){ ansicht = s.value || 'Gesamt'; zeigen(); };
+    tabs.appendChild(s);
+  }
+
+  function gesamt(){
+    var rp = {}, zeit = {}, prog = {};
+    daten.spieler.forEach(function(n){ rp[n] = 0; zeit[n] = 0; prog[n] = []; });
+    spieleNamen.forEach(function(sp){
+      var s = daten.spiele[sp] || {};
+      var mit = daten.spieler.filter(function(n){ return s[n] && s[n].punkte > 0; })
+        .sort(function(a, b){ return s[b].punkte - s[a].punkte; });
+      mit.forEach(function(n, i){ rp[n] += mit.length - i; });
+      daten.spieler.forEach(function(n){ if (s[n]) { zeit[n] += s[n].zeit || 0; if (s[n].progress > 0) prog[n].push(s[n].progress); } });
+    });
+    return daten.spieler.map(function(n){
+      var p = prog[n];
+      return { name: n, rp: rp[n], zeit: zeit[n], progress: p.length ? p.reduce(function(a, b){ return a + b; }, 0) / p.length : 0 };
+    }).sort(function(a, b){ return b.rp - a.rp || b.zeit - a.zeit; });
+  }
+
+  function balken(proz){
+    var w = el('span'), b = el('span', undefined, 'balken'), i = document.createElement('i');
+    i.style.width = Math.max(0, Math.min(100, proz)) + '%'; b.appendChild(i); w.appendChild(b); w.appendChild(document.createTextNode(Math.round(proz) + ' %'));
+    return w;
+  }
+
+  function zeigen(){
+    tabsBauen(); spielerListe(); anzeige.textContent = '';
+    if (!daten.spieler.length) { anzeige.appendChild(el('p', 'Lege oben einen Namen an, dann kannst du Ranglisten sehen und dich eintragen.', 'rang-leer')); return; }
+    if (ansicht === 'Gesamt') {
+      var t = kopf(['Platz', 'Spieler', 'Rangpunkte', 'Spielzeit', 'Ø Progress']);
+      gesamt().forEach(function(z, i){
+        var tr = document.createElement('tr'); if (z.name === daten.aktiv) tr.className = 'ich';
+        zelle(tr, i + 1, 'platz'); zelle(tr, z.name); zelle(tr, z.rp); zelle(tr, zeitText(z.zeit)); zelle(tr, '').appendChild(balken(z.progress));
+        t.appendChild(tr);
+      });
+      anzeige.appendChild(t);
+      anzeige.appendChild(el('p', 'Rangpunkte: In jedem Spiel bekommt der Beste so viele Punkte wie Mitspieler mit einem Ergebnis, der Zweite einen weniger usw. Wer in vielen Spielen vorne liegt, gewinnt.', 'rang-hinweis'));
+      return;
+    }
+    var s = daten.spiele[ansicht] || {};
+    var zeilen = daten.spieler.map(function(n){ var e = s[n] || { punkte: 0, progress: 0, zeit: 0 }; return { name: n, punkte: e.punkte, progress: e.progress, zeit: e.zeit }; })
+      .sort(function(a, b){ return b.punkte - a.punkte || b.zeit - a.zeit; });
+    var tab = kopf(['Platz', 'Spieler', 'Punkte', 'Spielzeit', 'Progress']);
+    zeilen.forEach(function(z, i){
+      var tr = document.createElement('tr'); if (z.name === daten.aktiv) tr.className = 'ich';
+      zelle(tr, i + 1, 'platz'); zelle(tr, z.name); zelle(tr, fmt(z.punkte)); zelle(tr, zeitText(z.zeit)); zelle(tr, '').appendChild(balken(z.progress));
+      tab.appendChild(tr);
+    });
+    anzeige.appendChild(tab);
+    if (daten.aktiv) {
+      var f = el('div', undefined, 'rang-zeile'); f.style.marginTop = '16px';
+      var p = el('input'); p.type = 'number'; p.min = 0; p.placeholder = 'Punkte'; p.setAttribute('aria-label', 'Punkte');
+      var g = el('input'); g.type = 'number'; g.min = 0; g.max = 100; g.placeholder = 'Progress %'; g.setAttribute('aria-label', 'Progress in Prozent');
+      var ok = el('button', 'Für ' + daten.aktiv + ' eintragen', 'rang-tab'); ok.type = 'button';
+      ok.onclick = function(){
+        var e = eintrag(ansicht, daten.aktiv);
+        if (p.value !== '') e.punkte = Math.max(e.punkte, Math.max(0, Math.round(+p.value) || 0));
+        if (g.value !== '') e.progress = Math.max(e.progress, Math.min(100, Math.max(0, +g.value || 0)));
+        speichern(); zeigen();
+      };
+      f.appendChild(p); f.appendChild(g); f.appendChild(ok); anzeige.appendChild(f);
+      anzeige.appendChild(el('p', 'Punkte und Progress zählen als Bestwert: ein niedrigerer Wert überschreibt nichts.', 'rang-hinweis'));
+    }
+  }
+
+  document.getElementById('rangNeuOk').onclick = function(){
+    var i = document.getElementById('rangNeu'), n = i.value.trim().slice(0, 16);
+    if (!n) return;
+    if (daten.spieler.indexOf(n) < 0) daten.spieler.push(n);
+    daten.aktiv = n; i.value = ''; speichern(); zeigen();
+  };
+  wahl.onchange = function(){ daten.aktiv = wahl.value; speichern(); zeigen(); };
+  document.getElementById('rangOeffnen').onclick = function(){ zeigen(); dlg.showModal(); };
+  document.getElementById('rangZu').onclick = function(){ dlg.close(); };
+  dlg.addEventListener('click', function(e){ if (e.target === dlg) dlg.close(); });
+})();
 </script>
 <script>
 // Goodnotes-Knopf – in allen Spielen gleich (Vorlage: spielesammlung).
