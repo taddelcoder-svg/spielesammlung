@@ -94,7 +94,15 @@
     [sel, inp, fehler, ok, nein].forEach(function (x) { k.appendChild(x); });
     d.appendChild(k); document.body.appendChild(d);
   }
-  function start() { if (!name) wahlZeigen(); else post('/api/spieler', { name: name }); }
+  // Als Olympia-Disziplin (Ticket im Link oder in der Sitzung) keine Namensabfrage einblenden
+  function inOlymp() {
+    try {
+      if (/[?&]olymp=/.test(location.search)) return true;
+      for (var i = 0; i < sessionStorage.length; i++) if (/olymp/i.test(sessionStorage.key(i))) return true;
+    } catch (e) {}
+    return false;
+  }
+  function start() { if (!name) { if (!inOlymp()) wahlZeigen(); } else post('/api/spieler', { name: name }); }
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 
   window.SLRang = { melde: function (w) { melde(w); }, spiel: SPIEL };
