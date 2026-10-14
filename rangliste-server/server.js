@@ -1,0 +1,125 @@
+'use strict';
+/* Live-Ranglisten der Swimming-Lions-Spielesammlung.
+   Die Spiele melden über melder.js Spielzeit, Punkte und Progress an diesen Dienst,
+   die Sammlung zeigt die Ranglisten an. Keine Abhängigkeiten außer Node.
+
+   Speicher: Mit SUPABASE_URL und SUPABASE_SERVICE_KEY liegt alles als eine Zeile in
+   der Tabelle „rangliste_speicher“ (siehe supabase_setup.sql) und übersteht Deploys.
+   Ohne diese Variablen wird nur lokal in rangliste.json gespeichert. */
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const PORT = process.env.PORT || 10000;
+const DB_DATEI = path.join(__dirname, 'rangliste.json');
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const MIT_SUPABASE = !!(SUPABASE_URL && SUPABASE_KEY);
+const TABELLE = `${SUPABASE_URL}/rest/v1/rangliste_speicher`;
+const KOPF = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY };
+
+// Namen müssen genau so heißen wie in der Sammlung
+const SPIELE = new Set(['Olympiade', 'Blaue Stunde', 'Löwen-Kart', 'Weltenbummler', 'Weltreiche', 'Futbolero',
+  'Pinguin Türmchen', 'Ringfieber', 'Quaderland', 'Löwenküche', 'Fischfieber', 'Schanzenlöwe',
+  'Verräter an Bord', 'Kredithai', 'Epochen', 'Knastknacker']);
+
+let daten = { spieler: {}, werte: {} };
+let geaendert = false;
+
+async function laden() {
+  if (MIT_SUPABASE) {
+    for (let versuch = 1; versuch <= 3; versuch++) {
+      try {
+        const res = await fetch(`${TABELLE}?id=eq.haupt&select=daten`, { headers: KOPF });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const z = await res.json();
+        if (z[0] && z[0].daten) daten = z[0].daten;
+        console.log('Daten aus Supabase geladen.');
+        return;
+      } catch (e) { console.error(`Laden aus Supabase fehlgeschlagen (Versuch ${versuch}):`, e.message); await new Promise(r => setTimeout(r, 1500)); }
+    }
+    // Ohne erfolgreiches Laden nicht starten, sonst würde der leere Stand die echten Daten überschreiben
+    console.error('Abbruch: Supabase nicht erreichbar.'); process.exit(1);
+  }
+  try { daten = JSON.parse(fs.readFileSync(DB_DATEI, 'utf8')); } catch (e) {}
+}
+
+let speichert = false;
+async function speichern() {
+  if (!geaendert || speichert) return;
+  speichert = true; geaendert = false;
+  try {
+    if (MIT_SUPABASE) {
+      const res = await fetch(TABELLE, { method: 'POST',
+        headers: { ...KOPF, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ id: 'haupt', daten, geaendert_am: new Date().toISOString() }) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+    } else fs.writeFileSync(DB_DATEI, JSON.stringify(daten));
+  } catch (e) { geaendert = true; console.error('Speichern fehlgeschlagen:', e.message); }
+  speichert = false;
+}
+setInterval(speichern, 5000).unref();
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, async () => { await speichern(); process.exit(0); });
+
+// Anfragen je IP begrenzen (nur im Arbeitsspeicher)
+const zaehler = new Map();
+setInterval(() => zaehler.clear(), 60_000).unref();
+const ipAus = req => (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+function zuViele(req) { const ip = ipAus(req), n = (zaehler.get(ip) || 0) + 1; zaehler.set(ip, n); return n > 240; }
+
+const sauber = t => String(t || '').replace(/[\u0000-\u001f<>&"]/g, '').trim().slice(0, 16);
+const zahl = (v, max) => { v = Number(v); return Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : null; };
+
+function eintrag(spiel, name) {
+  const s = daten.werte[spiel] || (daten.werte[spiel] = {});
+  return s[name] || (s[name] = { punkte: 0, progress: 0, zeit: 0, zeitAlt: 0, zuletzt: 0 });
+}
+
+function melden(b) {
+  const spiel = String(b.spiel || ''), name = sauber(b.spieler);
+  if (!SPIELE.has(spiel)) return { fehler: 'Unbekanntes Spiel' };
+  if (name.length < 2 || !daten.spieler[name]) return { fehler: 'Unbekannter Spieler' };
+  const e = eintrag(spiel, name);
+  const p = zahl(b.punkte, 1e12), g = zahl(b.progress, 100), s = zahl(b.sekunden, 120), za = zahl(b.zeitAlt, 1e8);
+  if (p !== null && p > e.punkte) e.punkte = Math.round(p);
+  if (g !== null && g > e.progress) e.progress = Math.round(g * 10) / 10;
+  if (s !== null) e.zeit += s;
+  if (za !== null && za > e.zeitAlt) e.zeitAlt = Math.round(za);
+  e.zuletzt = Date.now();
+  geaendert = true;
+  return { ok: true };
+}
+
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
+const senden = (res, status, obj) => { res.writeHead(status, { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
+const koerper = req => new Promise(ok => {
+  let d = ''; req.on('data', c => { d += c; if (d.length > 4000) req.destroy(); });
+  req.on('end', () => { try { ok(JSON.parse(d)); } catch (e) { ok({}); } });
+  req.on('error', () => ok({}));
+});
+
+const server = http.createServer(async (req, res) => {
+  const pfad = new URL(req.url, 'http://x').pathname;
+  if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
+  if (pfad === '/healthz') return senden(res, 200, { ok: true });
+  if (pfad === '/melder.js') {
+    res.writeHead(200, { ...CORS, 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=300' });
+    return fs.createReadStream(path.join(__dirname, 'public', 'melder.js')).pipe(res);
+  }
+  if (pfad.startsWith('/api/') && zuViele(req)) return senden(res, 429, { fehler: 'Zu viele Anfragen' });
+  if (req.method === 'GET' && pfad === '/api/rangliste') return senden(res, 200, { spieler: Object.keys(daten.spieler), werte: daten.werte });
+  if (req.method === 'POST' && pfad === '/api/spieler') {
+    const name = sauber((await koerper(req)).name);
+    if (name.length < 2) return senden(res, 400, { fehler: 'Name zu kurz' });
+    if (!daten.spieler[name] && Object.keys(daten.spieler).length >= 200) return senden(res, 400, { fehler: 'Zu viele Spieler' });
+    if (!daten.spieler[name]) { daten.spieler[name] = { erstellt: Date.now() }; geaendert = true; }
+    return senden(res, 200, { ok: true, name });
+  }
+  if (req.method === 'POST' && pfad === '/api/melden') {
+    const r = melden(await koerper(req));
+    return senden(res, r.fehler ? 400 : 200, r);
+  }
+  senden(res, 404, { fehler: 'Nicht gefunden' });
+});
+
+laden().then(() => server.listen(PORT, () => console.log(`Rangliste läuft auf Port ${PORT} (Speicher: ${MIT_SUPABASE ? 'Supabase' : DB_DATEI})`)));
