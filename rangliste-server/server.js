@@ -78,7 +78,11 @@ function eintrag(spiel, name) {
 function melden(b) {
   const spiel = String(b.spiel || ''), name = sauber(b.spieler);
   if (!SPIELE.has(spiel)) return { fehler: 'Unbekanntes Spiel' };
-  if (name.length < 2 || !daten.spieler[name]) return { fehler: 'Unbekannter Spieler' };
+  if (name.length < 2) return { fehler: 'Unbekannter Spieler' };
+  if (!daten.spieler[name]) {   // Neue Namen werden beim ersten Wert automatisch angelegt
+    if (Object.keys(daten.spieler).length >= 200) return { fehler: 'Zu viele Spieler' };
+    daten.spieler[name] = { erstellt: Date.now() };
+  }
   const e = eintrag(spiel, name);
   const p = zahl(b.punkte, 1e12), g = zahl(b.progress, 100), s = zahl(b.sekunden, 120), za = zahl(b.zeitAlt, 1e8);
   if (p !== null && p > e.punkte) e.punkte = Math.round(p);

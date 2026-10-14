@@ -26,23 +26,34 @@
   var offen = { sekunden: 0, punkte: null, progress: null, zeitAlt: null };
   var gesendet = { punkte: -1, progress: -1, zeitAlt: -1 };
 
+  // Gibt ein Versprechen zurück, das nur bei einer erfolgreichen Antwort erfüllt wird
   function post(pfad, obj, beacon) {
     var body = JSON.stringify(obj);
-    try {
-      if (beacon && navigator.sendBeacon) return navigator.sendBeacon(API + pfad, new Blob([body], { type: 'text/plain' }));
-      return fetch(API + pfad, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body, keepalive: true }).catch(function () {});
-    } catch (e) {}
+    if (beacon && navigator.sendBeacon) {
+      try { navigator.sendBeacon(API + pfad, new Blob([body], { type: 'text/plain' })); } catch (e) {}
+      return null;
+    }
+    return fetch(API + pfad, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body, keepalive: true })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
   }
 
+  // Erst als gesendet merken, wenn der Server geantwortet hat (der kostenlose Server schläft
+  // manchmal und braucht ein paar Sekunden zum Aufwachen). Sonst wird beim nächsten Takt wiederholt.
   function senden(beacon) {
     if (!name || ruhe) return;
-    var o = { spiel: SPIEL, spieler: name };
-    var etwas = false;
-    if (offen.sekunden >= 1) { o.sekunden = Math.round(offen.sekunden); offen.sekunden = 0; etwas = true; }
+    var o = { spiel: SPIEL, spieler: name }, etwas = false;
+    var vorher = { p: gesendet.punkte, g: gesendet.progress, z: gesendet.zeitAlt }, sek = 0;
+    if (offen.sekunden >= 1) { sek = Math.round(offen.sekunden); o.sekunden = sek; offen.sekunden = 0; etwas = true; }
     if (offen.punkte !== null && offen.punkte > gesendet.punkte) { o.punkte = gesendet.punkte = offen.punkte; etwas = true; }
     if (offen.progress !== null && offen.progress > gesendet.progress) { o.progress = gesendet.progress = offen.progress; etwas = true; }
     if (offen.zeitAlt !== null && offen.zeitAlt > gesendet.zeitAlt) { o.zeitAlt = gesendet.zeitAlt = offen.zeitAlt; etwas = true; }
-    if (etwas) post('/api/melden', o, beacon);
+    if (!etwas) return;
+    var p = post('/api/melden', o, beacon);
+    if (!p) return;
+    p.catch(function () {
+      offen.sekunden += sek;
+      gesendet.punkte = vorher.p; gesendet.progress = vorher.g; gesendet.zeitAlt = vorher.z;
+    });
   }
 
   function melde(w) {
@@ -85,8 +96,7 @@
     ok.onclick = function () {
       var n = (inp.value.trim() || sel.value).slice(0, 16);
       if (n.length < 2) { fehler.textContent = 'Bitte einen Namen wählen oder eingeben.'; return; }
-      fetch(API + '/api/spieler', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: n }) })
-        .then(function (r) { return r.json(); })
+      post('/api/spieler', { name: n })
         .then(function (j) { if (!j.ok) { fehler.textContent = j.fehler || 'Hat nicht geklappt.'; return; } name = j.name; schreiben(name); d.remove(); adapterLesen(); senden(false); })
         .catch(function () { fehler.textContent = 'Rangliste gerade nicht erreichbar.'; });
     };
@@ -102,7 +112,7 @@
     } catch (e) {}
     return false;
   }
-  function start() { if (!name) { if (!inOlymp()) wahlZeigen(); } else post('/api/spieler', { name: name }); }
+  function start() { if (!name) { if (!inOlymp()) wahlZeigen(); } else { var pr = post('/api/spieler', { name: name }); if (pr) pr.catch(function () {}); } }
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 
   window.SLRang = { melde: function (w) { melde(w); }, spiel: SPIEL };
