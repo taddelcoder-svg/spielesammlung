@@ -75,7 +75,14 @@ function eintrag(spiel, name) {
   return s[name] || (s[name] = { punkte: 0, progress: 0, zeit: 0, zeitAlt: 0, zuletzt: 0 });
 }
 
+const protokoll = [];   // die letzten Meldungen, zur Fehlersuche unter /api/debug
 function melden(b) {
+  const r = melden2(b);
+  protokoll.push({ t: new Date().toISOString().slice(11, 19), spiel: b.spiel, spieler: b.spieler, punkte: b.punkte, progress: b.progress, sek: b.sekunden, ergebnis: r.fehler || 'ok' });
+  if (protokoll.length > 40) protokoll.shift();
+  return r;
+}
+function melden2(b) {
   const spiel = String(b.spiel || ''), name = sauber(b.spieler);
   if (!SPIELE.has(spiel)) return { fehler: 'Unbekanntes Spiel' };
   if (name.length < 2) return { fehler: 'Unbekannter Spieler' };
@@ -112,6 +119,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (pfad.startsWith('/api/') && zuViele(req)) return senden(res, 429, { fehler: 'Zu viele Anfragen' });
   if (req.method === 'GET' && pfad === '/api/rangliste') return senden(res, 200, { spieler: Object.keys(daten.spieler), werte: daten.werte });
+  if (req.method === 'GET' && pfad === '/api/debug') return senden(res, 200, { spieler: Object.keys(daten.spieler).length, letzte: protokoll });
   if (req.method === 'POST' && pfad === '/api/spieler') {
     const name = sauber((await koerper(req)).name);
     if (name.length < 2) return senden(res, 400, { fehler: 'Name zu kurz' });
