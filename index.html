@@ -312,6 +312,17 @@
   .rang-tabelle td.platz { font-weight: 800; width: 3em; }
   .rang-tabelle tr.ich td { background: color-mix(in srgb, var(--leine-gelb) 22%, transparent); }
   .rang-leer, .rang-hinweis { color: var(--tinte-weich); line-height: 1.45; margin: 8px 0 0; font-size: .92rem; }
+  .rang-name { display: inline-flex; align-items: center; gap: 6px; }
+  .rang-stern {
+    min-width: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 8px; background: none;
+    color: var(--tinte-weich); font: inherit; font-size: 1.1rem; line-height: 1; cursor: pointer;
+  }
+  .rang-stern[aria-pressed="true"] { color: #d99a00; }
+  .rang-stern:focus-visible { outline: 3px solid var(--akzent); outline-offset: 1px; }
+  .rang-punkt { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--erfolg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--erfolg) 25%, transparent); }
+  .rang-status { color: var(--tinte-weich); }
+  .rang-status.an { color: var(--erfolg); font-weight: 700; }
+  .rang-zeile.klein { margin: 4px 0 12px; }
   .balken { display: inline-block; width: 70px; height: 8px; border-radius: 4px; background: var(--fuge); vertical-align: middle; overflow: hidden; margin-right: 6px; }
   .balken i { display: block; height: 100%; background: var(--erfolg); }
 
@@ -424,6 +435,7 @@
    UPDATES – neueste zuerst, je Eintrag 1 kurzer Satz
    ========================================================= */
 const UPDATES = [
+  { datum: "20.10.2026", text: "Ranglisten: Jetzt mit „Gerade online“, „Zuletzt online“ und Freunden – tipp auf ☆ neben einem Namen, um jemanden als Freund zu merken." },
   { datum: "14.10.2026", text: "Neu in der Sammlung: Crazy Lineup – ein Minigame für jeden aus der Klasse, bisher mit Matteo und Timo." },
   { datum: "14.10.2026", text: "Neu: Live-Ranglisten mit Punkten, Spielzeit und Progress pro Spiel plus Gesamtwertung, direkt aus den Spielen." },
   { datum: "13.10.2026", text: "Neu in der Sammlung: Knastknacker – Gefängnisausbruch solo oder online bis 10." },
@@ -675,8 +687,10 @@ document.getElementById("jahr").textContent = new Date().getFullYear();
 const RANG_API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://localhost:10000" : "https://rangliste-aoee.onrender.com";
 (function(){
   var KEY = 'sl_name', AKTUALISIEREN_MS = 15000;
-  var daten = { spieler: [], werte: {} }, name = '', ansicht = 'Gesamt', timer = null;
+  var KEY_FREUNDE = 'sl_freunde', PING_MS = 30000;
+  var daten = { spieler: [], werte: {}, status: {}, versatz: 0, onlineMs: 75000 }, name = '', ansicht = 'Gesamt', timer = null, freunde = [];
   try { name = localStorage.getItem(KEY) || ''; } catch (e) {}
+  try { freunde = JSON.parse(localStorage.getItem(KEY_FREUNDE) || '[]').filter(function(n){ return typeof n === 'string'; }); } catch (e) { freunde = []; }
   var dlg = document.getElementById('rangDialog'), anzeige = document.getElementById('rangAnzeige'),
       tabs = document.getElementById('rangTabs'), wahl = document.getElementById('rangSpieler'),
       knopf = document.getElementById('rangOeffnen');
@@ -708,9 +722,67 @@ const RANG_API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://
   }
   var zeitVon = function(e){ return (e.zeit || 0) + (e.zeitAlt || 0); };
 
+  // Online-Status: Zeitstempel kommen vom Server, der Versatz gleicht eine falsch gehende Uhr aus
+  function zuletzt(n){ var st = daten.status[n]; return st ? st.zuletzt : 0; }
+  function istOnline(n){ var z = zuletzt(n); return !!z && Date.now() + daten.versatz - z < daten.onlineMs; }
+  function wo(n){ var st = daten.status[n]; return st && st.spiel ? (st.spiel === 'Sammlung' ? 'in der Sammlung' : 'spielt ' + st.spiel) : ''; }
+  function seitText(n){
+    var z = zuletzt(n);
+    if (!z) return 'noch nie';
+    if (istOnline(n)) return 'gerade online';
+    var min = Math.floor((Date.now() + daten.versatz - z) / 60000);
+    if (min < 1) return 'gerade eben';
+    if (min < 60) return 'vor ' + min + ' min';
+    var h = Math.floor(min / 60);
+    if (h < 24) return 'vor ' + h + ' h';
+    var t = Math.floor(h / 24);
+    if (t === 1) return 'gestern';
+    if (t < 7) return 'vor ' + t + ' Tagen';
+    return new Date(z).toLocaleDateString('de-DE');
+  }
+  function statusZelle(tr, n){
+    var td = zelle(tr, '', 'rang-status' + (istOnline(n) ? ' an' : ''));
+    td.textContent = istOnline(n) && wo(n) ? wo(n) : seitText(n);
+    return td;
+  }
+
+  // Freunde werden nur auf diesem Gerät gemerkt
+  var istFreund = function(n){ return freunde.indexOf(n) >= 0; };
+  function freundUmschalten(n){
+    freunde = istFreund(n) ? freunde.filter(function(f){ return f !== n; }) : freunde.concat([n]);
+    try { localStorage.setItem(KEY_FREUNDE, JSON.stringify(freunde)); } catch (e) {}
+    zeigen();
+  }
+  function namenZelle(tr, n){
+    var td = zelle(tr, ''), w = el('span', undefined, 'rang-name');
+    if (n !== name) {
+      var b = el('button', istFreund(n) ? '★' : '☆', 'rang-stern'); b.type = 'button';
+      b.setAttribute('aria-pressed', istFreund(n));
+      b.setAttribute('aria-label', istFreund(n) ? n + ' aus Freunden entfernen' : n + ' als Freund merken');
+      b.title = istFreund(n) ? 'Aus Freunden entfernen' : 'Als Freund merken';
+      b.onclick = function(){ freundUmschalten(n); };
+      w.appendChild(b);
+    } else w.appendChild(el('span', undefined, 'rang-stern'));
+    if (istOnline(n)) { var p = el('span', undefined, 'rang-punkt'); p.title = 'Gerade online'; w.appendChild(p); }
+    w.appendChild(document.createTextNode(n + (n === name ? ' (du)' : '')));
+    td.appendChild(w);
+    return td;
+  }
+
+  // Lebenszeichen aus der Sammlung, damit man auch hier als online zählt
+  function pingen(){
+    if (!name || document.visibilityState !== 'visible') return;
+    fetch(RANG_API + '/api/spieler', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, spiel: 'Sammlung' }) }).catch(function(){});
+  }
+  pingen();
+  setInterval(pingen, PING_MS);
+  document.addEventListener('visibilitychange', pingen);
+
   function laden(){
     return fetch(RANG_API + '/api/rangliste', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(function(j){
-      daten = { spieler: j.spieler || [], werte: j.werte || {} }; anzeigeFehler = false;
+      daten = { spieler: j.spieler || [], werte: j.werte || {}, status: j.status || {},
+        versatz: j.jetzt ? j.jetzt - Date.now() : 0, onlineMs: j.onlineMs || 75000 };
+      anzeigeFehler = false;
     }).catch(function(){ anzeigeFehler = true; });
   }
   var anzeigeFehler = false;
@@ -725,6 +797,12 @@ const RANG_API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://
     var b = el('button', '🏆 Gesamt', 'rang-tab'); b.type = 'button'; b.setAttribute('aria-pressed', ansicht === 'Gesamt');
     b.onclick = function(){ ansicht = 'Gesamt'; zeigen(); };
     tabs.appendChild(b);
+    var anzahlOnline = daten.spieler.filter(istOnline).length;
+    [['Online', '🟢 Gerade online' + (anzahlOnline ? ' (' + anzahlOnline + ')' : '')], ['Zuletzt', '🕒 Zuletzt online'], ['Freunde', '👥 Freunde' + (freunde.length ? ' (' + freunde.length + ')' : '')]].forEach(function(t){
+      var k = el('button', t[1], 'rang-tab'); k.type = 'button'; k.setAttribute('aria-pressed', ansicht === t[0]);
+      k.onclick = function(){ ansicht = t[0]; zeigen(); };
+      tabs.appendChild(k);
+    });
     var s = document.createElement('select'); s.setAttribute('aria-label', 'Spiel wählen');
     var o0 = el('option', 'Einzelnes Spiel …'); o0.value = ''; s.appendChild(o0);
     spieleNamen.forEach(function(n){ var o = el('option', n); o.value = n; if (n === ansicht) o.selected = true; s.appendChild(o); });
@@ -755,13 +833,16 @@ const RANG_API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://
       var t = kopf(['Platz', 'Spieler', 'Rangpunkte', 'Spielzeit', 'Ø Progress']);
       gesamt().forEach(function(z, i){
         var tr = document.createElement('tr'); if (z.name === name) tr.className = 'ich';
-        zelle(tr, i + 1, 'platz'); zelle(tr, z.name); zelle(tr, z.rp); zelle(tr, zeitText(z.zeit)); zelle(tr, '').appendChild(balken(z.progress));
+        zelle(tr, i + 1, 'platz'); namenZelle(tr, z.name); zelle(tr, z.rp); zelle(tr, zeitText(z.zeit)); zelle(tr, '').appendChild(balken(z.progress));
         t.appendChild(tr);
       });
       anzeige.appendChild(t);
-      anzeige.appendChild(el('p', 'Rangpunkte: In jedem Spiel bekommt der Beste so viele Punkte wie Mitspieler mit einem Ergebnis, der Zweite einen weniger usw. Die Werte kommen direkt aus den Spielen und aktualisieren sich alle paar Sekunden.', 'rang-hinweis'));
+      anzeige.appendChild(el('p', '☆ neben einem Namen merkt ihn dir als Freund. Rangpunkte: In jedem Spiel bekommt der Beste so viele Punkte wie Mitspieler mit einem Ergebnis, der Zweite einen weniger usw. Die Werte kommen direkt aus den Spielen und aktualisieren sich alle paar Sekunden.', 'rang-hinweis'));
       return;
     }
+    if (ansicht === 'Online') return onlineZeigen();
+    if (ansicht === 'Zuletzt') return zuletztZeigen();
+    if (ansicht === 'Freunde') return freundeZeigen();
     var s = daten.werte[ansicht] || {};
     var zeilen = daten.spieler.filter(function(n){ return s[n]; }).map(function(n){ var e = s[n]; return { name: n, punkte: e.punkte || 0, progress: e.progress || 0, zeit: zeitVon(e) }; })
       .sort(function(a, b){ return b.punkte - a.punkte || b.zeit - a.zeit; });
@@ -769,15 +850,67 @@ const RANG_API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://
     var tab = kopf(['Platz', 'Spieler', 'Punkte', 'Spielzeit', 'Progress']);
     zeilen.forEach(function(z, i){
       var tr = document.createElement('tr'); if (z.name === name) tr.className = 'ich';
-      zelle(tr, i + 1, 'platz'); zelle(tr, z.name); zelle(tr, fmt(z.punkte)); zelle(tr, zeitText(z.zeit)); zelle(tr, '').appendChild(balken(z.progress));
+      zelle(tr, i + 1, 'platz'); namenZelle(tr, z.name); zelle(tr, fmt(z.punkte)); zelle(tr, zeitText(z.zeit)); zelle(tr, '').appendChild(balken(z.progress));
       tab.appendChild(tr);
     });
     anzeige.appendChild(tab);
   }
 
+  var nachZuletzt = function(a, b){ return zuletzt(b) - zuletzt(a) || a.localeCompare(b); };
+  function onlineZeigen(){
+    var wer = daten.spieler.filter(istOnline).sort(function(a, b){ return (istFreund(b) - istFreund(a)) || a.localeCompare(b); });
+    if (!wer.length) { anzeige.appendChild(el('p', 'Gerade ist niemand online. Unter „Zuletzt online“ siehst du, wer zuletzt da war.', 'rang-leer')); return; }
+    var t = kopf(['Spieler', 'Wo']);
+    wer.forEach(function(n){
+      var tr = document.createElement('tr'); if (n === name) tr.className = 'ich';
+      namenZelle(tr, n); zelle(tr, wo(n) || 'online', 'rang-status an');
+      t.appendChild(tr);
+    });
+    anzeige.appendChild(t);
+    anzeige.appendChild(el('p', 'Online ist, wer gerade ein Spiel oder die Sammlung mit seinem Namen offen hat. Tippe auf ☆, um jemanden als Freund zu merken.', 'rang-hinweis'));
+  }
+  function zuletztZeigen(){
+    var wer = daten.spieler.slice().sort(nachZuletzt);
+    var t = kopf(['Spieler', 'Zuletzt online', 'Zuletzt gespielt']);
+    wer.forEach(function(n){
+      var tr = document.createElement('tr'); if (n === name) tr.className = 'ich';
+      var st = daten.status[n];
+      namenZelle(tr, n); statusZelle(tr, n).textContent = seitText(n);
+      zelle(tr, st && st.spiel && st.spiel !== 'Sammlung' ? st.spiel : '–');
+      t.appendChild(tr);
+    });
+    anzeige.appendChild(t);
+  }
+  function freundeZeigen(){
+    var plaetze = {};
+    gesamt().forEach(function(z, i){ plaetze[z.name] = { platz: i + 1, rp: z.rp, zeit: z.zeit }; });
+    var wer = freunde.filter(function(n){ return daten.spieler.indexOf(n) >= 0; });
+    if (name && daten.spieler.indexOf(name) >= 0) wer.push(name);
+    var andere = daten.spieler.filter(function(n){ return n !== name && !istFreund(n); }).sort();
+    if (andere.length) {
+      var z = el('div', undefined, 'rang-zeile klein'), s = document.createElement('select');
+      s.setAttribute('aria-label', 'Freund hinzufügen');
+      var o0 = el('option', '＋ Freund hinzufügen …'); o0.value = ''; s.appendChild(o0);
+      andere.forEach(function(n){ var o = el('option', n); o.value = n; s.appendChild(o); });
+      s.onchange = function(){ if (s.value) freundUmschalten(s.value); };
+      z.appendChild(s); anzeige.appendChild(z);
+    }
+    if (!freunde.length) { anzeige.appendChild(el('p', 'Du hast noch keine Freunde gemerkt. Wähl oben jemanden aus oder tipp in einer Rangliste auf ☆ neben einem Namen.', 'rang-leer')); return; }
+    wer.sort(function(a, b){ return (istOnline(b) - istOnline(a)) || plaetze[a].platz - plaetze[b].platz; });
+    var t = kopf(['Spieler', 'Status', 'Platz', 'Spielzeit']);
+    wer.forEach(function(n){
+      var tr = document.createElement('tr'); if (n === name) tr.className = 'ich';
+      var p = plaetze[n];
+      namenZelle(tr, n); statusZelle(tr, n); zelle(tr, p.platz + '.', 'platz'); zelle(tr, zeitText(p.zeit));
+      t.appendChild(tr);
+    });
+    anzeige.appendChild(t);
+    anzeige.appendChild(el('p', 'Platz = Platz in der Gesamtwertung. Deine Freunde werden nur auf diesem Gerät gemerkt, online stehen oben.', 'rang-hinweis'));
+  }
+
   function nameSetzen(n){
     name = n; try { localStorage.setItem(KEY, n); } catch (e) {}
-    zeigen();
+    pingen(); zeigen();
   }
   document.getElementById('rangNeuOk').onclick = function(){
     var i = document.getElementById('rangNeu'), n = i.value.trim().slice(0, 16);
