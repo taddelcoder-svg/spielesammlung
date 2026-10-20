@@ -129,7 +129,7 @@
   }
   function start() {
     dbg('gestartet, Name: ' + (name || '(keiner)') + ', Dienst: ' + API);
-     if (!name) { if (!inOlymp()) wahlZeigen(); } else { var pr = post('/api/spieler', { name: name }); if (pr) pr.catch(function () {}); } }
+     if (!name) { if (!inOlymp()) wahlZeigen(); } else { var pr = post('/api/spieler', { name: name, spiel: SPIEL }); if (pr) pr.catch(function () {}); } }
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 
   window.SLRang = { melde: function (w) { melde(w); }, spiel: SPIEL };

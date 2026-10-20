@@ -98,8 +98,29 @@ function melden2(b) {
   if (s !== null) e.zeit += s;
   if (za !== null && za > e.zeitAlt) e.zeitAlt = Math.round(za);
   e.zuletzt = Date.now();
+  gesehen(name, spiel);
   geaendert = true;
   return { ok: true };
+}
+
+/* Online-Status: Wer zuletzt wann und wo aktiv war. Die Spiele melden alle 20 Sekunden,
+   die Sammlung pingt alle 30 Sekunden (spiel = „Sammlung“). */
+const ONLINE_MS = 75_000;
+function gesehen(name, spiel) {
+  const sp = daten.spieler[name];
+  if (!sp) return;
+  sp.zuletzt = Date.now();
+  if (SPIELE.has(spiel) || spiel === 'Sammlung') sp.spiel = spiel;
+}
+function status() {
+  const st = {};
+  for (const [name, sp] of Object.entries(daten.spieler)) {
+    let zuletzt = sp.zuletzt || 0, spiel = sp.spiel || '';
+    // Ältere Einträge ohne eigenen Zeitstempel: letzte Meldung aus den Spielen nehmen
+    for (const [s, w] of Object.entries(daten.werte)) if (w[name] && w[name].zuletzt > zuletzt) { zuletzt = w[name].zuletzt; spiel = s; }
+    if (zuletzt) st[name] = { zuletzt, spiel };
+  }
+  return st;
 }
 
 /* Abstimmung: Welche Spiele sollen aus der Sammlung raus?
@@ -149,13 +170,14 @@ const server = http.createServer(async (req, res) => {
     return fs.createReadStream(path.join(__dirname, 'public', 'melder.js')).pipe(res);
   }
   if (pfad.startsWith('/api/') && zuViele(req)) return senden(res, 429, { fehler: 'Zu viele Anfragen' });
-  if (req.method === 'GET' && pfad === '/api/rangliste') return senden(res, 200, { spieler: Object.keys(daten.spieler), werte: daten.werte });
+  if (req.method === 'GET' && pfad === '/api/rangliste') return senden(res, 200, { spieler: Object.keys(daten.spieler), werte: daten.werte, status: status(), jetzt: Date.now(), onlineMs: ONLINE_MS });
   if (req.method === 'GET' && pfad === '/api/debug') return senden(res, 200, { spieler: Object.keys(daten.spieler).length, letzte: protokoll });
   if (req.method === 'POST' && pfad === '/api/spieler') {
-    const name = sauber((await koerper(req)).name);
+    const b = await koerper(req), name = sauber(b.name);
     if (name.length < 2) return senden(res, 400, { fehler: 'Name zu kurz' });
     if (!daten.spieler[name] && Object.keys(daten.spieler).length >= 200) return senden(res, 400, { fehler: 'Zu viele Spieler' });
     if (!daten.spieler[name]) { daten.spieler[name] = { erstellt: Date.now() }; geaendert = true; }
+    if (b.spiel) { gesehen(name, String(b.spiel)); geaendert = true; }   // Lebenszeichen aus Spiel oder Sammlung
     return senden(res, 200, { ok: true, name });
   }
   if (req.method === 'GET' && pfad === '/api/voting') {
