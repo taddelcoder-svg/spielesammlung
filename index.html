@@ -326,40 +326,6 @@
   .balken { display: inline-block; width: 70px; height: 8px; border-radius: 4px; background: var(--fuge); vertical-align: middle; overflow: hidden; margin-right: 6px; }
   .balken i { display: block; height: 100%; background: var(--erfolg); }
 
-  /* Abstimmung */
-  .rang-knopf.wahl-knopf { background: var(--glas); color: var(--tinte); border: 1px solid var(--rand); box-shadow: var(--schatten); }
-  .wahl-gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin: 0 0 14px; }
-  .wahl-spiel {
-    display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px;
-    border: 1px solid var(--rand); border-radius: 12px; background: var(--fliese); cursor: pointer;
-    font-weight: 700; line-height: 1.2; transition: border-color .15s ease, background .15s ease;
-  }
-  .wahl-spiel input { position: absolute; opacity: 0; pointer-events: none; }
-  .wahl-spiel .mini { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; font-size: 1.3rem; background: var(--farbe, var(--wasser)); }
-  .wahl-spiel .haken { margin-left: auto; flex: none; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--rand-stark); display: grid; place-items: center; color: #fff; font-size: .85rem; }
-  .wahl-spiel:has(input:checked) { border-color: var(--gefahr); background: color-mix(in srgb, var(--gefahr) 12%, var(--karte)); }
-  .wahl-spiel:has(input:checked) .haken { background: var(--gefahr); border-color: var(--gefahr); }
-  .wahl-spiel:has(input:checked) .haken::before { content: "✕"; }
-  .wahl-spiel:has(input:focus-visible) { outline: 3px solid var(--akzent); outline-offset: 2px; }
-  .wahl-spiel:has(input:disabled) { opacity: .45; cursor: not-allowed; }
-  .wahl-fuss { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-  .wahl-fuss .zaehler { font-weight: 700; color: var(--tinte-weich); font-variant-numeric: tabular-nums; }
-  .wahl-ab {
-    min-height: 44px; padding: 0 20px; border-radius: 12px; border: 0; cursor: pointer;
-    font: inherit; font-weight: 800; background: var(--tinte); color: var(--karte);
-  }
-  .wahl-ab:disabled { opacity: .4; cursor: not-allowed; }
-  .wahl-ab:focus-visible { outline: 3px solid var(--akzent); outline-offset: 3px; }
-  .wahl-fehler { color: var(--gefahr); font-weight: 700; margin: 10px 0 0; }
-  .wahl-erg { list-style: none; margin: 0; padding: 0; }
-  .wahl-erg li { display: grid; grid-template-columns: 1.6em 1fr auto; align-items: center; gap: 4px 10px; padding: 10px 0; border-top: 1px solid var(--rand); }
-  .wahl-erg li:first-child { border-top: 0; }
-  .wahl-erg .platz { font-weight: 800; color: var(--tinte-weich); font-variant-numeric: tabular-nums; }
-  .wahl-erg .n { font-weight: 800; font-variant-numeric: tabular-nums; }
-  .wahl-erg .bahn { grid-column: 2 / 4; height: 10px; border-radius: 5px; background: var(--fuge); overflow: hidden; }
-  .wahl-erg .bahn i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--leine-gelb), var(--leine-rot)); }
-  .wahl-erg .meins { margin-left: 6px; font-size: .78rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--leine-gelb); color: #13315c; white-space: nowrap; }
-
   footer { padding: 0 0 40px; color: var(--tinte-weich); font-size: .95rem; }
   footer a { color: inherit; text-underline-offset: 3px; border-radius: 4px; }
   footer a:hover { color: var(--tinte); }
@@ -390,7 +356,6 @@
       <p class="intro">Alle unsere Browserspiele an einem Ort. Such dir eins aus und spring rein.</p>
       <div class="anzahl" id="anzahl" hidden></div>
       <button type="button" class="rang-knopf" id="rangOeffnen"><span aria-hidden="true">🏆</span> Ranglisten</button>
-      <button type="button" class="rang-knopf wahl-knopf" id="wahlOeffnen"><span aria-hidden="true">🗳️</span> Abstimmung</button>
     </header>
 
     <div class="leine" role="presentation"></div>
@@ -420,14 +385,6 @@
       <div class="rang-zeile" id="rangTabs" role="group" aria-label="Rangliste wählen"></div>
       <div id="rangAnzeige"></div>
     </div>
-  </dialog>
-
-  <dialog class="rang" id="wahlDialog" aria-labelledby="wahlTitel">
-    <div class="rang-kopf">
-      <h2 id="wahlTitel">🗳️ Welche Spiele sollen raus?</h2>
-      <button type="button" class="rang-zu" id="wahlZu" aria-label="Schließen">✕</button>
-    </div>
-    <div class="rang-inhalt" id="wahlInhalt"></div>
   </dialog>
 
 <script>
@@ -911,105 +868,6 @@ const RANG_API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://
   function zu(){ clearInterval(timer); }
   dlg.addEventListener('close', zu);
   document.getElementById('rangZu').onclick = function(){ dlg.close(); };
-  dlg.addEventListener('click', function(e){ if (e.target === dlg) dlg.close(); });
-})();
-</script>
-<script>
-/* =========================================================
-   ABSTIMMUNG – welche Spiele sollen raus, damit Platz für neue entsteht?
-   Gespeichert im Rangliste-Dienst (/api/voting). Eine Stimme pro Gerät
-   und pro Ranglisten-Name, das Ergebnis gibt es erst nach der eigenen Stimme.
-   ========================================================= */
-(function(){
-  var KEY = 'sl_geraet';
-  var dlg = document.getElementById('wahlDialog'), inhalt = document.getElementById('wahlInhalt'),
-      knopf = document.getElementById('wahlOeffnen');
-  if (!RANG_API) { knopf.hidden = true; return; }
-  var spiele = SPIELE.filter(function(s){ return s.link && s.link.trim(); });
-  var geraet = '';
-  try { geraet = localStorage.getItem(KEY) || ''; } catch (e) {}
-  if (!/^[a-z0-9-]{8,64}$/i.test(geraet)) {
-    geraet = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
-    try { localStorage.setItem(KEY, geraet); } catch (e) {}
-  }
-  var meinName = function(){ try { return localStorage.getItem('sl_name') || ''; } catch (e) { return ''; } };
-
-  function el(tag, text, klasse){ var e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (klasse) e.className = klasse; return e; }
-  function hinweis(text, klasse){ inhalt.appendChild(el('p', text, klasse || 'rang-hinweis')); }
-  var KEIN_SERVER = 'Die Abstimmung ist gerade nicht erreichbar. Beim ersten Aufruf nach einer Pause braucht der Server ein paar Sekunden zum Aufwachen – gleich nochmal öffnen.';
-
-  function auswahl(stand){
-    inhalt.textContent = '';
-    var max = stand.max || 3;
-    hinweis('Damit Platz für neue Spiele entsteht, fliegen ein paar raus. Wähle bis zu ' + max + ' Spiele, die du am wenigsten vermissen würdest. Jeder hat nur eine Stimme – danach siehst du das Ergebnis.', 'rang-leer');
-    var gitter = el('div', undefined, 'wahl-gitter');
-    gitter.style.marginTop = '14px';
-    spiele.forEach(function(s){
-      var l = el('label', undefined, 'wahl-spiel'), c = document.createElement('input');
-      c.type = 'checkbox'; c.value = s.name;
-      var mini = el('span', istBild(s.icon) ? '' : s.icon, 'mini'); mini.setAttribute('aria-hidden', 'true');
-      if (s.farbe) mini.style.setProperty('--farbe', s.farbe);
-      l.appendChild(c); l.appendChild(mini); l.appendChild(el('span', s.name)); l.appendChild(el('span', undefined, 'haken'));
-      gitter.appendChild(l);
-    });
-    inhalt.appendChild(gitter);
-    var fuss = el('div', undefined, 'wahl-fuss'), ab = el('button', 'Abstimmen', 'wahl-ab'), zaehler = el('span', '', 'zaehler');
-    ab.type = 'button';
-    fuss.appendChild(ab); fuss.appendChild(zaehler);
-    var n = meinName(); if (n) fuss.appendChild(el('span', 'Du stimmst ab als ' + n + '.', 'rang-hinweis'));
-    inhalt.appendChild(fuss);
-    var fehler = el('p', '', 'wahl-fehler'); fehler.hidden = true; inhalt.appendChild(fehler);
-    var boxen = [].slice.call(gitter.querySelectorAll('input'));
-    function aktualisieren(){
-      var gewaehlt = boxen.filter(function(b){ return b.checked; }).length;
-      boxen.forEach(function(b){ b.disabled = !b.checked && gewaehlt >= max; });
-      zaehler.textContent = gewaehlt + ' / ' + max + ' gewählt';
-      ab.disabled = !gewaehlt;
-    }
-    gitter.addEventListener('change', aktualisieren); aktualisieren();
-    ab.onclick = function(){
-      var wahl = boxen.filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
-      ab.disabled = true; fehler.hidden = true;
-      fetch(RANG_API + '/api/voting', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ geraet: geraet, name: meinName(), spiele: wahl }) })
-        .then(function(r){ return r.json(); })
-        .then(function(j){
-          if (j.abgestimmt) return ergebnis(j, true);
-          fehler.textContent = j.fehler || 'Das hat nicht geklappt.'; fehler.hidden = false; aktualisieren();
-        })
-        .catch(function(){ fehler.textContent = KEIN_SERVER; fehler.hidden = false; aktualisieren(); });
-    };
-  }
-
-  function ergebnis(stand, frisch){
-    inhalt.textContent = '';
-    var t = stand.teilnehmer || 0, erg = stand.ergebnis || {}, meine = stand.meine || [];
-    hinweis((frisch ? 'Danke, deine Stimme ist gezählt! ' : 'Du hast schon abgestimmt. ') + t + (t === 1 ? ' Person hat' : ' Leute haben') + ' bisher abgestimmt.', 'rang-leer');
-    var zeilen = spiele.map(function(s){ return { name: s.name, n: erg[s.name] || 0 }; })
-      .sort(function(a, b){ return b.n - a.n || a.name.localeCompare(b.name, 'de'); });
-    var liste = el('ul', undefined, 'wahl-erg'); liste.style.marginTop = '10px';
-    zeilen.forEach(function(z){
-      var li = document.createElement('li'), name = el('span', z.name);
-      if (meine.indexOf(z.name) >= 0) name.appendChild(el('span', 'deine Wahl', 'meins'));
-      var platz = zeilen.filter(function(a){ return a.n > z.n; }).length + 1;   // Gleichstand = gleicher Platz
-      li.appendChild(el('span', z.n ? String(platz) : '–', 'platz')); li.appendChild(name);
-      li.appendChild(el('span', z.n + (z.n === 1 ? ' Stimme' : ' Stimmen'), 'n'));
-      var bahn = el('span', undefined, 'bahn'), b = document.createElement('i');
-      b.style.width = (t ? Math.round(z.n / t * 100) : 0) + '%'; bahn.appendChild(b); li.appendChild(bahn);
-      liste.appendChild(li);
-    });
-    inhalt.appendChild(liste);
-    hinweis('Der Balken zeigt, wie viel Prozent der Abstimmenden das Spiel rauswerfen würden.');
-  }
-
-  knopf.onclick = function(){
-    inhalt.textContent = ''; hinweis('Lade …', 'rang-leer');
-    dlg.showModal();
-    fetch(RANG_API + '/api/voting?geraet=' + encodeURIComponent(geraet), { cache: 'no-store' })
-      .then(function(r){ return r.json(); })
-      .then(function(j){ if (j.abgestimmt) ergebnis(j, false); else auswahl(j); })
-      .catch(function(){ inhalt.textContent = ''; hinweis(KEIN_SERVER); });
-  };
-  document.getElementById('wahlZu').onclick = function(){ dlg.close(); };
   dlg.addEventListener('click', function(e){ if (e.target === dlg) dlg.close(); });
 })();
 </script>

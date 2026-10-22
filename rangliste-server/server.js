@@ -43,7 +43,6 @@ async function laden() {
   }
   try { daten = JSON.parse(fs.readFileSync(DB_DATEI, 'utf8')); } catch (e) {}
 }
-const mitVoting = () => { if (!daten.voting) daten.voting = { stimmen: {} }; };
 
 let speichert = false;
 async function speichern() {
@@ -123,36 +122,6 @@ function status() {
   return st;
 }
 
-/* Abstimmung: Welche Spiele sollen aus der Sammlung raus?
-   Eine Stimme pro Gerät (zufällige ID aus dem localStorage) und pro Ranglisten-Name.
-   Das Ergebnis bekommt nur, wer schon abgestimmt hat. */
-const MAX_STIMMEN = 3;
-const ADMIN_SCHLUESSEL = process.env.ADMIN_SCHLUESSEL || '';
-const geraetId = t => /^[a-z0-9-]{8,64}$/i.test(String(t || '')) ? String(t) : '';
-function votingStand(geraet) {
-  mitVoting();
-  const stimmen = daten.voting.stimmen, meine = stimmen[geraet];
-  if (!meine) return { abgestimmt: false, max: MAX_STIMMEN };
-  const ergebnis = {};
-  for (const s of Object.values(stimmen)) for (const sp of s.spiele) ergebnis[sp] = (ergebnis[sp] || 0) + 1;
-  return { abgestimmt: true, max: MAX_STIMMEN, meine: meine.spiele, ergebnis, teilnehmer: Object.keys(stimmen).length };
-}
-function abstimmen(b) {
-  mitVoting();
-  const geraet = geraetId(b.geraet), name = sauber(b.name), stimmen = daten.voting.stimmen;
-  if (!geraet) return { status: 400, fehler: 'Gerät unbekannt' };
-  if (stimmen[geraet]) return { status: 409, fehler: 'Von diesem Gerät wurde schon abgestimmt.' };
-  if (name.length >= 2 && Object.values(stimmen).some(s => s.name === name)) return { status: 409, fehler: name + ' hat schon abgestimmt.' };
-  const spiele = [...new Set(Array.isArray(b.spiele) ? b.spiele.map(String) : [])];
-  if (!spiele.length) return { status: 400, fehler: 'Bitte mindestens ein Spiel auswählen.' };
-  if (spiele.length > MAX_STIMMEN) return { status: 400, fehler: 'Höchstens ' + MAX_STIMMEN + ' Spiele.' };
-  if (spiele.some(sp => !SPIELE.has(sp))) return { status: 400, fehler: 'Unbekanntes Spiel' };
-  if (Object.keys(stimmen).length >= 1000) return { status: 400, fehler: 'Zu viele Stimmen' };
-  stimmen[geraet] = { spiele, name: name.length >= 2 ? name : '', zeit: Date.now() };
-  geaendert = true;
-  return { status: 200, ok: true };
-}
-
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
 const senden = (res, status, obj) => { res.writeHead(status, { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
 const koerper = req => new Promise(ok => {
@@ -180,20 +149,6 @@ const server = http.createServer(async (req, res) => {
     if (b.spiel) { gesehen(name, String(b.spiel)); geaendert = true; }   // Lebenszeichen aus Spiel oder Sammlung
     return senden(res, 200, { ok: true, name });
   }
-  if (req.method === 'GET' && pfad === '/api/voting') {
-    return senden(res, 200, votingStand(geraetId(new URL(req.url, 'http://x').searchParams.get('geraet'))));
-  }
-  if (req.method === 'POST' && pfad === '/api/voting') {
-    const b = await koerper(req), r = abstimmen(b);
-    return senden(res, r.status, r.ok ? votingStand(geraetId(b.geraet)) : { fehler: r.fehler });
-  }
-  // Abstimmung beenden: alle Stimmen löschen (nur mit ADMIN_SCHLUESSEL aus den Render-Variablen)
-  if (req.method === 'POST' && pfad === '/api/voting/zuruecksetzen') {
-    const schluessel = String((await koerper(req)).schluessel || '');
-    if (!ADMIN_SCHLUESSEL || schluessel !== ADMIN_SCHLUESSEL) return senden(res, 403, { fehler: 'Kein Zugriff' });
-    daten.voting = { stimmen: {} }; geaendert = true;
-    return senden(res, 200, { ok: true });
-  }
   if (req.method === 'POST' && pfad === '/api/melden') {
     const r = melden(await koerper(req));
     return senden(res, r.fehler ? 400 : 200, r);
@@ -201,4 +156,8 @@ const server = http.createServer(async (req, res) => {
   senden(res, 404, { fehler: 'Nicht gefunden' });
 });
 
-laden().then(() => server.listen(PORT, () => console.log(`Rangliste läuft auf Port ${PORT} (Speicher: ${MIT_SUPABASE ? 'Supabase' : DB_DATEI})`)));
+laden().then(() => {
+  // Alte Stimmen der beendeten Abstimmung löschen
+  if (daten.voting) { delete daten.voting; geaendert = true; }
+  server.listen(PORT, () => console.log(`Rangliste läuft auf Port ${PORT} (Speicher: ${MIT_SUPABASE ? 'Supabase' : DB_DATEI})`));
+});
