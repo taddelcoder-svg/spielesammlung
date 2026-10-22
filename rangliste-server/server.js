@@ -21,7 +21,7 @@ const KOPF = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY };
 // Namen müssen genau so heißen wie in der Sammlung
 const SPIELE = new Set(['Olympiade', 'Blaue Stunde', 'Löwen-Kart', 'Weltenbummler', 'Weltreiche', 'Futbolero',
   'Pinguin Türmchen', 'Ringfieber', 'Löwenküche', 'Schanzenlöwe',
-  'Verräter an Bord', 'Kredithai', 'Knastknacker', 'Crazy Lineup']);
+  'Verräter an Bord', 'Kredithai', 'Knastknacker', 'Crazy Lineup', 'Clash of Taddel']);
 
 let daten = { spieler: {}, werte: {} };
 let geaendert = false;
