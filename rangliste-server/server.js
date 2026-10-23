@@ -5,13 +5,18 @@
 
    Speicher: Mit SUPABASE_URL und SUPABASE_SERVICE_KEY liegt alles als eine Zeile in
    der Tabelle „rangliste_speicher“ (siehe supabase_setup.sql) und übersteht Deploys.
-   Ohne diese Variablen wird nur lokal in rangliste.json gespeichert. */
+   Ohne diese Variablen wird nur lokal in rangliste.json gespeichert.
+
+   Dazu kommen die Spielstände in der Cloud (siehe unten): Wer seinen Namen mit einer PIN
+   schützt, kann auf jedem Gerät mit seinem Spielstand weiterspielen. */
 const http = require('http');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 10000;
 const DB_DATEI = path.join(__dirname, 'rangliste.json');
+const STAND_ORDNER = path.join(__dirname, 'staende');
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const MIT_SUPABASE = !!(SUPABASE_URL && SUPABASE_KEY);
@@ -122,10 +127,115 @@ function status() {
   return st;
 }
 
+
+/* ---------- Spielstände in der Cloud ----------
+   Ein Name wird beim ersten Verbinden mit einer PIN geschützt (gespeichert wird nur ein
+   scrypt-Hash). Pro Name und Spiel liegt dann ein Spielstand: die Einträge, die das Spiel im
+   localStorage hat, ein Inhalts-Hash (rechnet der Browser) und die Zeit. Damit zwei Geräte sich
+   nicht gegenseitig überschreiben, schickt der Browser beim Sichern den Hash mit, auf dem sein
+   Stand aufbaut („basis“). Passt der nicht mehr, antwortet der Server mit 409 und der Browser
+   fragt, welcher Stand bleiben soll. Mit Supabase je eine eigene Zeile „stand:Spiel:Name“,
+   sonst eine Datei in staende/. */
+const STAND_MAX = 2_000_000;                  // Zeichen pro Anfrage
+const FEHL_MAX = 8, FEHL_SPERRE = 15 * 60_000;  // falsche PINs pro Name, dann 15 Minuten Pause
+const fehlVersuche = new Map();               // Name -> { n, bis }
+setInterval(() => { const j = Date.now(); for (const [k, v] of fehlVersuche) if (j > v.bis) fehlVersuche.delete(k); }, 60_000).unref();
+
+const pinHash = (pin, salz) => crypto.scryptSync(pin, salz, 32).toString('hex');
+function pinPruefen(b) {
+  const name = sauber(b.name), pin = typeof b.pin === 'string' ? b.pin : '';
+  if (name.length < 2) return { fehler: 'Name zu kurz' };
+  if (pin.length < 4 || pin.length > 32) return { fehler: 'Die PIN braucht mindestens 4 Zeichen.' };
+  const f = fehlVersuche.get(name);
+  if (f && f.n >= FEHL_MAX && Date.now() < f.bis) return { fehler: 'Zu oft die falsche PIN. Warte eine Viertelstunde.', status: 429 };
+  let sp = daten.spieler[name];
+  if (!sp) {
+    if (Object.keys(daten.spieler).length >= 200) return { fehler: 'Zu viele Spieler' };
+    sp = daten.spieler[name] = { erstellt: Date.now() };
+    geaendert = true;
+  }
+  if (!sp.pin) {   // Erstes Verbinden: Die PIN wird festgelegt
+    const salz = crypto.randomBytes(16).toString('hex');
+    sp.pin = salz + ':' + pinHash(pin, salz);
+    geaendert = true;
+    return { name, neu: true };
+  }
+  const [salz, soll] = sp.pin.split(':');
+  const ist = pinHash(pin, salz);
+  if (!crypto.timingSafeEqual(Buffer.from(ist, 'hex'), Buffer.from(soll, 'hex'))) {
+    const v = f && Date.now() < f.bis ? f : { n: 0, bis: Date.now() + FEHL_SPERRE };
+    v.n++; fehlVersuche.set(name, v);
+    return { fehler: 'Die PIN passt nicht zu diesem Namen.', status: 403 };
+  }
+  fehlVersuche.delete(name);
+  return { name };
+}
+
+const standId = (spiel, name) => 'stand:' + spiel + ':' + name;
+const standDatei = id => path.join(STAND_ORDNER, encodeURIComponent(id) + '.json');
+async function standLesen(id) {
+  if (MIT_SUPABASE) {
+    const res = await fetch(`${TABELLE}?id=eq.${encodeURIComponent(id)}&select=daten`, { headers: KOPF });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const z = await res.json();
+    return z[0] ? z[0].daten : null;
+  }
+  try { return JSON.parse(fs.readFileSync(standDatei(id), 'utf8')); } catch (e) { return null; }
+}
+async function standSchreiben(id, stand) {
+  if (MIT_SUPABASE) {
+    const res = await fetch(TABELLE, { method: 'POST',
+      headers: { ...KOPF, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ id, daten: stand, geaendert_am: new Date().toISOString() }) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return;
+  }
+  fs.mkdirSync(STAND_ORDNER, { recursive: true });
+  fs.writeFileSync(standDatei(id), JSON.stringify(stand));
+}
+function werteOk(w) {
+  if (!w || typeof w !== 'object' || Array.isArray(w)) return null;
+  const k = Object.keys(w);
+  if (k.length > 300) return null;
+  for (const x of k) if (x.length > 120 || typeof w[x] !== 'string') return null;
+  return w;
+}
+// Pro Spielstand immer nur eine Anfrage gleichzeitig, sonst könnten zwei Geräte beide „gewinnen“
+const standSperren = new Map();
+function nacheinander(id, f) {
+  const vorher = standSperren.get(id) || Promise.resolve();
+  const p = vorher.then(f, f);
+  const weiter = p.catch(() => {});
+  standSperren.set(id, weiter);
+  weiter.then(() => { if (standSperren.get(id) === weiter) standSperren.delete(id); });
+  return p;
+}
+
+async function standAnfrage(pfad, b) {
+  const a = pinPruefen(b);
+  if (a.fehler) return [a.status || 400, { fehler: a.fehler }];
+  if (pfad === '/api/stand/anmelden') return [200, { ok: true, name: a.name, neu: !!a.neu }];
+  const spiel = String(b.spiel || '');
+  if (!SPIELE.has(spiel)) return [400, { fehler: 'Unbekanntes Spiel' }];
+  const id = standId(spiel, a.name);
+  if (pfad === '/api/stand/laden') return [200, { ok: true, name: a.name, stand: await standLesen(id) }];
+  // sichern
+  const werte = werteOk(b.werte), hash = String(b.hash || '').slice(0, 40), basis = b.basis ? String(b.basis) : '';
+  if (!werte || !hash) return [400, { fehler: 'Ungültiger Spielstand' }];
+  return nacheinander(id, async () => {
+    const alt = await standLesen(id);
+    if (alt && alt.hash === hash) return [200, { ok: true, zeit: alt.zeit }];
+    if (alt && alt.hash !== basis) return [409, { fehler: 'Auf einem anderen Gerät wurde inzwischen weitergespielt.', hash: alt.hash, zeit: alt.zeit }];
+    const neu = { hash, zeit: Date.now(), werte };
+    await standSchreiben(id, neu);
+    return [200, { ok: true, zeit: neu.zeit }];
+  });
+}
+
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
 const senden = (res, status, obj) => { res.writeHead(status, { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
-const koerper = req => new Promise(ok => {
-  let d = ''; req.on('data', c => { d += c; if (d.length > 4000) req.destroy(); });
+const koerper = (req, max = 4000) => new Promise(ok => {
+  let d = ''; req.on('data', c => { d += c; if (d.length > max) req.destroy(); });
   req.on('end', () => { try { ok(JSON.parse(d)); } catch (e) { ok({}); } });
   req.on('error', () => ok({}));
 });
@@ -148,6 +258,12 @@ const server = http.createServer(async (req, res) => {
     if (!daten.spieler[name]) { daten.spieler[name] = { erstellt: Date.now() }; geaendert = true; }
     if (b.spiel) { gesehen(name, String(b.spiel)); geaendert = true; }   // Lebenszeichen aus Spiel oder Sammlung
     return senden(res, 200, { ok: true, name });
+  }
+  if (req.method === 'POST' && pfad.startsWith('/api/stand/') && ['anmelden', 'laden', 'sichern'].includes(pfad.slice(11))) {
+    try {
+      const [st, obj] = await standAnfrage(pfad, await koerper(req, STAND_MAX));
+      return senden(res, st, obj);
+    } catch (e) { console.error('Spielstand:', e.message); return senden(res, 503, { fehler: 'Speicher gerade nicht erreichbar.' }); }
   }
   if (req.method === 'POST' && pfad === '/api/melden') {
     const r = melden(await koerper(req));
