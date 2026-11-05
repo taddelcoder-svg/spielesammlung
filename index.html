@@ -277,6 +277,52 @@
   .updates li.neu time { background: var(--leine-gelb); border-color: transparent; color: #13315c; }
   .updates li.neu time::after { content: " · neu"; font-weight: 800; }
 
+  /* Tages-Banner */
+  .tages {
+    position: relative; overflow: hidden;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center;
+    margin: 0 0 20px; padding: 20px 24px;
+    border-radius: var(--radius); color: #fff;
+    background: linear-gradient(120deg, #13315c 0%, #1c8fa3 55%, #e2463b 130%);
+    box-shadow: var(--schatten-hoch);
+    animation: rein .4s ease both;
+  }
+  .tages[hidden] { display: none; }
+  .tages::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle at 90% -20%, rgba(246,195,67,.45), transparent 55%);
+  }
+  .tages > * { position: relative; z-index: 1; }
+  .tages-icon {
+    width: 72px; height: 72px; border-radius: 18px; display: grid; place-items: center;
+    font-size: 2.4rem; background: var(--farbe, #2f7bf6); box-shadow: 0 4px 12px rgba(0,0,0,.3);
+  }
+  .tages-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+  .tages-label { font-size: .8rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--leine-gelb); }
+  .tages h2 { margin: 2px 0 4px; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+  .tages p { margin: 0; line-height: 1.4; opacity: .92; }
+  .tages-streak {
+    display: inline-block; margin-top: 8px; padding: 3px 12px; border-radius: 99px;
+    background: rgba(255,255,255,.18); font-weight: 700; font-size: .9rem;
+  }
+  .tages-knoepfe { display: flex; flex-direction: column; gap: 8px; }
+  .tages-knoepfe a, .tages-knoepfe button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 44px; padding: 0 18px; border-radius: 12px; border: 0; cursor: pointer;
+    font: inherit; font-weight: 800; text-decoration: none; white-space: nowrap;
+  }
+  .tages-los { background: var(--leine-gelb); color: #13315c; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+  .tages-teilen { background: rgba(255,255,255,.18); color: #fff; }
+  .tages-knoepfe a:focus-visible, .tages-knoepfe button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  @media (max-width: 640px) {
+    .tages { grid-template-columns: auto 1fr; padding: 16px; }
+    .tages-knoepfe { grid-column: 1 / -1; flex-direction: row; }
+    .tages-knoepfe > * { flex: 1; }
+    .tages-icon { width: 56px; height: 56px; font-size: 1.9rem; }
+    .tages h2 { font-size: 1.25rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .tages { animation: none; } }
+
   /* Ranglisten */
   .rang-knopf {
     display: inline-flex; align-items: center; gap: 8px; margin: 20px 0 0 8px;
@@ -360,6 +406,20 @@
 
     <div class="leine" role="presentation"></div>
 
+    <section class="tages" id="tages" aria-labelledby="tagesTitel" hidden>
+      <div class="tages-icon" id="tagesIcon" aria-hidden="true"></div>
+      <div>
+        <div class="tages-label">⭐ Spiel des Tages</div>
+        <h2 id="tagesTitel"></h2>
+        <p id="tagesText"></p>
+        <span class="tages-streak" id="tagesStreak"></span>
+      </div>
+      <div class="tages-knoepfe">
+        <a class="tages-los" id="tagesLos" href="#">Jetzt spielen</a>
+        <button type="button" class="tages-teilen" id="tagesTeilen">📣 Freunde einladen</button>
+      </div>
+    </section>
+
     <section class="updates" aria-labelledby="updatesTitel">
       <h2 id="updatesTitel">🆕 Updates</h2>
       <ul id="updates"></ul>
@@ -392,6 +452,7 @@
    UPDATES – neueste zuerst, je Eintrag 1 kurzer Satz
    ========================================================= */
 const UPDATES = [
+  { datum: "05.11.2026", text: "Neu in der Sammlung: Codename: Lineup – Agenten-Survivor im Comic-Stil mit acht Agenten aus Crazy Lineup, Ultis, Motorrad-Verfolgungsjagden und Oberschurken." },
   { datum: "05.11.2026", text: "Neu in der Sammlung: Taddelvillage – Dorf in 3D aufbauen, Armee ausbilden und Räuberdörfer plündern." },
   { datum: "04.11.2026", text: "Bravo Stars: Matti und Sinan aus Crazy Lineup kämpfen jetzt mit – dazu Boss-Kampf, Glocken-Wache, 5 gegen 5, Eroberung, Freunde und der Schuljahr-Pass." },
   { datum: "03.11.2026", text: "Bravo Stars: Shop, Truhen, Skins, Tagesaufgaben, Pokal-Weg, Rangspiel, Ultra, Ausrüstung, Emotes und die neuen Modi Tresorknacker, Kopfgeld, Duo-Royale und Trainingsplatz." },
@@ -431,6 +492,15 @@ const UPDATES = [
    neuerTab:     true = öffnet in neuem Tab
    ========================================================= */
 const SPIELE = [
+  {
+    name: "Codename: Lineup",
+    beschreibung: "Agenten-Survivor im Comic-Stil: Matteo, Timo, Omar, Julian, Felix, Mo, Damon und Sinan als Geheimagenten, jeder mit eigener Waffe, Eigenschaft und Ulti. Überlebe die Wellen, rase auf dem Motorrad durch Verfolgungsjagden, knack Geheimkoffer mit Fusionen und schalte Oberschurken aus – mit Agenten-Rang und Ausrüstung wirst du dauerhaft stärker.",
+    icon: "🕶️",
+    farbe: "#e02020",
+    tags: ["Neu", "Survivor", "Comic", "Agenten"],
+    link: "https://codename-lineup.onrender.com",
+    neuerTab: false
+  },
   {
     name: "Clash of Taddel",
     beschreibung: "3D-Kartenduell im Stil von Clash Royale: Mario, Darth Vader, Shrek, Pikachu, Gandalf, Iron Man, Godzilla, Goku und mehr kämpfen um eure Türme. Deck bauen, Trophäen sammeln, 6 Arenen – gegen den Computer oder online gegen Freunde.",
@@ -634,6 +704,54 @@ UPDATES.slice(0, 5).forEach((u, i) => {
   li.innerHTML = `<time>${escape(u.datum)}</time><span>${escape(u.text)}</span>`;
   updateListe.appendChild(li);
 });
+
+// Tages-Banner: täglich wechselndes Spiel + Besuchs-Serie (nur auf diesem Gerät)
+(function () {
+  const spielbar = SPIELE.filter(sp => sp.link && sp.link.trim() !== "");
+  if (!spielbar.length) return;
+  const heute = new Date();
+  const tag = Math.floor(Date.UTC(heute.getFullYear(), heute.getMonth(), heute.getDate()) / 864e5);
+  const spiel = spielbar[tag % spielbar.length];
+
+  const box = document.getElementById("tages");
+  const icon = document.getElementById("tagesIcon");
+  icon.style.setProperty("--farbe", spiel.farbe || "#2f7bf6");
+  icon.innerHTML = istBild(spiel.icon) ? `<img src="${escape(spiel.icon)}" alt="">` : escape(spiel.icon);
+  document.getElementById("tagesTitel").textContent = spiel.name;
+  const text = spiel.beschreibung.length > 110 ? spiel.beschreibung.slice(0, 107).replace(/\s+\S*$/, "") + " …" : spiel.beschreibung;
+  document.getElementById("tagesText").textContent = text;
+  const los = document.getElementById("tagesLos");
+  los.href = spiel.link;
+  if (spiel.neuerTab) { los.target = "_blank"; los.rel = "noopener"; }
+
+  // Serie: jeden Tag vorbeischauen zählt hoch, ein verpasster Tag setzt zurück
+  const KEY = "sammlung.serie";
+  let serie = 1;
+  try {
+    const alt = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (alt && Number.isFinite(alt.tag) && Number.isFinite(alt.serie)) {
+      if (alt.tag === tag) serie = alt.serie;
+      else if (alt.tag === tag - 1) serie = alt.serie + 1;
+    }
+    localStorage.setItem(KEY, JSON.stringify({ tag: tag, serie: serie }));
+  } catch (e) {}
+  document.getElementById("tagesStreak").textContent = serie > 1
+    ? "🔥 " + serie + " Tage in Folge dabei – bleib dran!"
+    : "🔥 Komm morgen wieder und starte deine Serie!";
+
+  const teilen = document.getElementById("tagesTeilen");
+  const label = teilen.textContent;
+  teilen.addEventListener("click", async function () {
+    const daten = { title: "Swimming Lions Spielesammlung", text: "Heute: " + spiel.name + " – spiel mit!", url: location.href.split("#")[0] };
+    try {
+      if (navigator.share) { await navigator.share(daten); return; }
+      await navigator.clipboard.writeText(daten.text + " " + daten.url);
+      teilen.textContent = "✅ Link kopiert";
+    } catch (e) { teilen.textContent = "Link: " + daten.url; }
+    setTimeout(() => { teilen.textContent = label; }, 2500);
+  });
+  box.hidden = false;
+})();
 
 const anzahlEl = document.getElementById("anzahl");
 const anzahlSpiele = SPIELE.filter(sp => sp.link && sp.link.trim() !== "").length;
