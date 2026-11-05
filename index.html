@@ -711,7 +711,11 @@ UPDATES.slice(0, 5).forEach((u, i) => {
   if (!spielbar.length) return;
   const heute = new Date();
   const tag = Math.floor(Date.UTC(heute.getFullYear(), heute.getMonth(), heute.getDate()) / 864e5);
-  const spiel = spielbar[tag % spielbar.length];
+  // Festes Spiel des Tages für einen Zeitraum (bis einschließlich "bis"), sonst wechselt es täglich
+  const FEST = { name: "Codename: Lineup", bis: 20261111 };
+  const heuteZahl = heute.getFullYear() * 10000 + (heute.getMonth() + 1) * 100 + heute.getDate();
+  const fest = heuteZahl <= FEST.bis && spielbar.find(sp => sp.name === FEST.name);
+  const spiel = fest || spielbar[tag % spielbar.length];
 
   const box = document.getElementById("tages");
   const icon = document.getElementById("tagesIcon");
