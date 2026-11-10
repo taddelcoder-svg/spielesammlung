@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panzerpakt</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<style>
+@font-face { font-family: "Bricolage"; font-weight: 200 800; font-display: swap; src: url(bricolage-grotesque.woff2) format("woff2"); }
+:root {
+  --bg: #0d0b0a; --panel: #1a1512; --panel2: #241d18; --rand: #3a2e25; --text: #f3e9dc; --leise: #a8998a;
+  --glut: #ff7a2a; --gold: #f2c230; --blut: #e8483f; --geist: #9fd8ff; --gift: #b46cf0;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "Bricolage", system-ui, sans-serif; }
+body { overflow-x: hidden; }
+button { font: inherit; cursor: pointer; border: 1px solid var(--rand); background: var(--panel2); color: var(--text); border-radius: 10px; padding: 9px 14px; font-weight: 600; transition: transform .08s, background .15s; }
+button:hover:not(:disabled) { background: #33281f; }
+button:active:not(:disabled) { transform: scale(.97); }
+button:disabled { opacity: .4; cursor: default; }
+button.haupt { background: linear-gradient(180deg, #ff8a3a, #c9481a); border-color: #ff9d5c; color: #1a0d05; font-weight: 800; letter-spacing: .02em; }
+button.gefahr { background: #4a1714; border-color: var(--blut); }
+input, select { font: inherit; background: #120e0c; color: var(--text); border: 1px solid var(--rand); border-radius: 10px; padding: 10px 12px; width: 100%; }
+h1, h2, h3 { margin: 0; }
+.leise { color: var(--leise); }
+.versteckt { display: none !important; }
+
+/* ---------- Startbildschirm ---------- */
+#start { min-height: 100%; display: grid; place-items: center; padding: 24px 16px; position: relative; overflow: hidden; }
+#start canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.startkarte { position: relative; width: min(520px, 100%); background: rgba(20,15,12,.82); backdrop-filter: blur(6px); border: 1px solid var(--rand); border-radius: 20px; padding: 26px; box-shadow: 0 30px 80px #000a; }
+.logo { font-size: clamp(42px, 11vw, 68px); font-weight: 800; letter-spacing: -.03em; line-height: .9; background: linear-gradient(180deg, #ffd27a, #ff6a1a 60%, #8a1f0a); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 18px #ff5a1a55); }
+.unterzeile { margin: 8px 0 20px; color: var(--leise); }
+.feld { margin-bottom: 12px; }
+.feld label { display: block; font-size: 13px; color: var(--leise); margin-bottom: 5px; }
+.klassen { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.klasse { text-align: left; padding: 10px; border-radius: 12px; }
+.klasse.an { border-color: var(--glut); background: #3a2010; box-shadow: 0 0 0 1px var(--glut) inset; }
+.klasse b { display: block; }
+.klasse small { color: var(--leise); font-weight: 400; display: block; font-size: 12px; line-height: 1.3; margin-top: 3px; }
+.reihe { display: flex; gap: 8px; flex-wrap: wrap; }
+.reihe > * { flex: 1; }
+.fehler { color: #ff8f86; min-height: 1.3em; margin-top: 8px; font-size: 14px; }
+.regeln { margin-top: 16px; font-size: 14px; color: var(--leise); }
+.regeln summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.regeln li { margin: 4px 0; }
+
+/* ---------- Lobby ---------- */
+#lobby { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+.code { font-size: 44px; font-weight: 800; letter-spacing: .15em; color: var(--gold); }
+.lager { display: grid; gap: 8px; margin: 16px 0; }
+.lagerzeile { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--rand); border-radius: 12px; padding: 10px 12px; }
+.farbpunkt { width: 18px; height: 18px; border-radius: 50%; flex: none; box-shadow: 0 0 10px currentColor; }
+.farben { display: flex; gap: 6px; flex-wrap: wrap; }
+.farben button { width: 30px; height: 30px; padding: 0; border-radius: 50%; }
+.farben button.an { outline: 3px solid #fff; }
+
+/* ---------- Schlacht ---------- */
+#spiel { display: grid; grid-template-columns: minmax(0, 1fr) 360px; height: 100vh; height: 100dvh; }
+#feldBox { position: relative; overflow: hidden; background: radial-gradient(ellipse at center, #1f1a14, #070605); }
+#feld { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+#kopf { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+.chip { pointer-events: auto; background: rgba(15,11,9,.85); border: 1px solid var(--rand); border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600; backdrop-filter: blur(4px); }
+.chip.ap { color: var(--gold); font-size: 18px; }
+.chip.ev { border-color: var(--blut); color: #ffb3a8; }
+#banner { position: absolute; left: 0; right: 0; top: 38%; text-align: center; pointer-events: none; opacity: 0; transition: opacity .4s; }
+#banner.zeigen { opacity: 1; }
+#banner div { display: inline-block; font-size: clamp(26px, 6vw, 54px); font-weight: 800; letter-spacing: .04em; padding: 10px 30px; background: linear-gradient(90deg, transparent, rgba(0,0,0,.8), transparent); text-shadow: 0 0 30px currentColor; }
+#steuer { position: absolute; bottom: 12px; left: 12px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+#steuer button { background: rgba(26,21,18,.92); backdrop-filter: blur(4px); }
+#hinweis { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); background: #000c; border: 1px solid var(--glut); padding: 6px 14px; border-radius: 999px; font-size: 14px; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
+#popup { position: absolute; z-index: 5; background: rgba(20,15,12,.96); border: 1px solid var(--rand); border-radius: 14px; padding: 10px; min-width: 210px; box-shadow: 0 10px 40px #000c; }
+#popup h3 { font-size: 16px; margin-bottom: 4px; }
+#popup .knopfe { display: grid; gap: 6px; margin-top: 8px; }
+#popup .knopfe button { padding: 7px 10px; text-align: left; }
+
+#seite { background: var(--panel); border-left: 1px solid var(--rand); display: flex; flex-direction: column; min-height: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--rand); }
+.tabs button { flex: 1; border: 0; border-radius: 0; background: transparent; padding: 12px 4px; font-size: 14px; color: var(--leise); position: relative; }
+.tabs button.an { color: var(--text); box-shadow: 0 -2px 0 var(--glut) inset; }
+.tabs button .punkt { position: absolute; top: 8px; right: 12%; width: 7px; height: 7px; border-radius: 50%; background: var(--glut); }
+.tabinhalt { flex: 1; overflow-y: auto; padding: 12px; min-height: 0; }
+.zeile { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 10px; background: var(--panel2); margin-bottom: 6px; font-size: 14px; }
+.zeile.tot { opacity: .55; }
+.zeile .werte { margin-left: auto; text-align: right; white-space: nowrap; font-size: 13px; }
+.chronik div { font-size: 13.5px; padding: 6px 8px; border-left: 3px solid var(--rand); margin-bottom: 4px; line-height: 1.35; }
+.chronik .tod, .chronik .verrat { border-color: var(--blut); background: #2a1210; }
+.chronik .titan { border-color: var(--glut); background: #2a1708; }
+.chronik .ereignis, .chronik .sturm { border-color: var(--gift); background: #1f1426; }
+.chronik .geist { border-color: var(--geist); background: #11202a; }
+.chronik .sieg, .chronik .start { border-color: var(--gold); background: #2a2208; font-weight: 700; }
+.chronik .pakt, .chronik .geschenk { border-color: #5ad16a; }
+.chronik .takt { color: var(--leise); border: 0; text-align: center; font-size: 12px; }
+.chat { display: flex; flex-direction: column; height: 100%; }
+.chatliste { flex: 1; overflow-y: auto; font-size: 14px; }
+.chatliste div { margin-bottom: 5px; line-height: 1.35; word-wrap: break-word; }
+.chatliste .flüster { color: #d6c3ff; }
+.chateingabe { display: flex; gap: 6px; margin-top: 8px; }
+.chateingabe select { width: 110px; flex: none; }
+.geisterrat p { font-size: 14px; }
+.kasten { background: var(--panel2); border: 1px solid var(--rand); border-radius: 12px; padding: 10px; margin-bottom: 10px; font-size: 14px; }
+
+@media (max-width: 820px) {
+  #spiel { grid-template-columns: 1fr; grid-template-rows: 62vh auto; height: auto; }
+  #feldBox { height: 62vh; height: 62dvh; }
+  #seite { border-left: 0; border-top: 1px solid var(--rand); min-height: 50vh; }
+  .chip { font-size: 12px; padding: 4px 9px; }
+  .chip.ap { font-size: 15px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ START ============ -->
+<section id="start">
+  <canvas id="startFunken"></canvas>
+  <div class="startkarte">
+    <div class="logo">PANZER<br>PAKT</div>
+    <p class="unterzeile">Ein Schlachtfeld. Ein Sturm. Ein Titan. Freunde, die du verraten wirst.</p>
+    <div class="feld"><label for="name">Dein Kommandantenname</label><input id="name" maxlength="16" placeholder="z. B. Graf Kette"></div>
+    <div class="feld"><label>Dein Panzer</label><div class="klassen" id="klassenwahl"></div></div>
+    <div class="reihe">
+      <button class="haupt" id="btnErstellen">Feldlager errichten</button>
+    </div>
+    <div class="reihe" style="margin-top:8px">
+      <input id="codeEingabe" maxlength="5" placeholder="CODE" style="text-transform:uppercase;letter-spacing:.2em;font-weight:700">
+      <button id="btnBeitreten">Beitreten</button>
+    </div>
+    <div class="fehler" id="startFehler"></div>
+    <div id="weiter"></div>
+    <details class="regeln">
+      <summary>So läuft die Schlacht</summary>
+      <ul>
+        <li><b>Pro Takt</b> (z. B. jede Stunde) bekommt jeder Panzer <b>1 Aktionspunkt</b>. AP kannst du ansparen.</li>
+        <li><b>Fahren</b> 1 AP (Berg 2 AP) · <b>Schießen</b> 1 AP (1 Schaden) · <b>Aufrüsten</b> 2 AP (+1 Reichweite) · <b>AP schenken</b> an Panzer in Reichweite.</li>
+        <li><b>Gelände:</b> Auf Bergen +1 Reichweite. Im Wald kann man dich nur aus 2 Feldern treffen. Flüsse nur an Furten überqueren.</li>
+        <li><b>Wer einen Panzer zerstört, plündert seine AP.</b></li>
+        <li><b>Der Sturm</b> zieht sich zusammen. Wer draußen steht, verliert jeden Takt ein Herz.</li>
+        <li><b>Der Titan</b> erwacht in Takt 6 in der Mitte und speit Feuer. Wer ihn erlegt, bekommt +3 AP und 2 Rüstung.</li>
+        <li><b>Pakte:</b> Schließt Blutpakte. Wer auf einen Paktbruder schießt, wird vor allen als Verräter gebrandmarkt.</li>
+        <li><b>Geisterrat:</b> Zerstörte Panzer stimmen jeden Takt ab: Segen (+1 AP) oder Fluch (−1 AP) für einen Lebenden.</li>
+        <li>Ereignisse wie <b>Blutmond</b> (doppelter Schaden), <b>Nebel</b>, <b>Luftbrücke</b> und <b>Erdbeben</b> würfeln jede Runde neu.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- ============ LOBBY ============ -->
+<section id="lobby" class="versteckt">
+  <p class="leise">Feldlager-Code – gib ihn deinen Freunden</p>
+  <div class="reihe" style="align-items:center"><div class="code" id="lobbyCode"></div><button id="btnLink" style="flex:none">Link kopieren</button></div>
+  <div class="lager" id="lager"></div>
+  <div class="kasten">
+    <div class="feld"><label>Deine Farbe</label><div class="farben" id="farbwahl"></div></div>
+    <div class="feld"><label>Deine Klasse</label><div class="klassen" id="klassenwahl2"></div></div>
+  </div>
+  <div class="kasten" id="hostBox">
+    <div class="feld"><label for="taktWahl">Takt (wie oft gibt es AP?)</label><select id="taktWahl"></select></div>
+    <div class="reihe"><button id="btnBot">+ Bot-Panzer</button><button class="haupt" id="btnStart">⚔️ Schlacht beginnen</button></div>
+  </div>
+  <p class="leise" id="wartet">Warte auf den Gastgeber …</p>
+  <div class="fehler" id="lobbyFehler"></div>
+</section>
+
+<!-- ============ SPIEL ============ -->
+<section id="spiel" class="versteckt">
+  <div id="feldBox">
+    <canvas id="feld"></canvas>
+    <div id="kopf"></div>
+    <div id="banner"><div></div></div>
+    <div id="hinweis" class="versteckt"></div>
+    <div id="popup" class="versteckt"></div>
+    <div id="steuer"></div>
+  </div>
+  <aside id="seite">
+    <div class="tabs" id="tabs">
+      <button data-tab="panzer" class="an">Panzer</button>
+      <button data-tab="chronik">Chronik</button>
+      <button data-tab="chat">Funk</button>
+      <button data-tab="rat">Geisterrat</button>
+    </div>
+    <div class="tabinhalt" id="tabinhalt"></div>
+  </aside>
+</section>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const speicher = { lies(k) { try { return JSON.parse(localStorage.getItem('panzerpakt_' + k)); } catch (e) { return null; } },
+  schreib(k, v) { try { localStorage.setItem('panzerpakt_' + k, JSON.stringify(v)); } catch (e) {} } };
+
+let INFO = null, sitzung = null, stand = null, gewaehlteKlasse = speicher.lies('klasse') || 'sturm';
+let tab = 'panzer', modus = null, hinweisText = '', letzteLog = 0, letzterChat = 0, ungelesen = {};
+const KLASSEN_ICON = { sturm: '⚡', artillerie: '🌋', spaeher: '🌫️', ingenieur: '🛠️' };
+
+async function post(pfad, daten = {}) {
+  const r = await fetch('/api/' + pfad, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...daten, code: sitzung?.code, token: sitzung?.token, ...(daten.code ? { code: daten.code } : {}) }) });
+  const j = await r.json().catch(() => ({ fehler: 'Keine Verbindung.' }));
+  if (!r.ok) throw new Error(j.fehler || 'Fehler');
+  return j;
+}
+
+/* ================= START ================= */
+function klassenKnopfe(ziel, beiWahl) {
+  ziel.innerHTML = Object.entries(INFO.klassen).map(([id, k]) =>
+    `<button class="klasse ${id === gewaehlteKlasse ? 'an' : ''}" data-k="${id}"><b>${KLASSEN_ICON[id]} ${k.name}</b><small>${k.text}</small></button>`).join('');
+  ziel.querySelectorAll('button').forEach(b => b.onclick = () => { gewaehlteKlasse = b.dataset.k; speicher.schreib('klasse', gewaehlteKlasse); klassenKnopfe(ziel, beiWahl); beiWahl && beiWahl(); });
+}
+
+async function init() {
+  INFO = await post('info');
+  $('#name').value = speicher.lies('name') || '';
+  klassenKnopfe($('#klassenwahl'));
+  const p = new URLSearchParams(location.search).get('code');
+  if (p) $('#codeEingabe').value = p.toUpperCase();
+  const alte = speicher.lies('sitzungen') || {};
+  const liste = Object.values(alte).sort((a, b) => b.t - a.t).slice(0, 4);
+  if (liste.length) $('#weiter').innerHTML = '<p class="leise" style="margin:12px 0 6px">Weiterkämpfen:</p><div class="reihe">' +
+    liste.map(s => `<button data-c="${s.code}">${esc(s.name)} · ${s.code}</button>`).join('') + '</div>';
+  $('#weiter').querySelectorAll('button').forEach(b => b.onclick = () => betreten(alte[b.dataset.c]));
+  if (p && alte[p.toUpperCase()]) betreten(alte[p.toUpperCase()]);
+  startFunken();
+}
+function merken(s) { const a = speicher.lies('sitzungen') || {}; a[s.code] = { ...s, t: Date.now() }; speicher.schreib('sitzungen', a); }
+
+$('#btnErstellen').onclick = async () => {
+  const name = $('#name').value.trim(); speicher.schreib('name', name);
+  try { const r = await post('erstellen', { name, klasse: gewaehlteKlasse }); const s = { ...r, name }; merken(s); betreten(s); }
+  catch (e) { $('#startFehler').textContent = e.message; }
+};
+$('#btnBeitreten').onclick = async () => {
+  const name = $('#name').value.trim(), code = $('#codeEingabe').value.trim().toUpperCase(); speicher.schreib('name', name);
+  try { const r = await post('beitreten', { name, klasse: gewaehlteKlasse, code }); const s = { ...r, name }; merken(s); betreten(s); }
+  catch (e) { $('#startFehler').textContent = e.message; }
+};
+
+function betreten(s) {
+  sitzung = s;
+  history.replaceState(null, '', '?code=' + s.code);
+  aktualisieren();
+}
+
+let abfrage = null;
+async function aktualisieren() {
+  clearTimeout(abfrage);
+  try { neuerStand(await post('stand')); } catch (e) { if (/gibt es nicht/.test(e.message)) { $('#startFehler').textContent = e.message; return; } }
+  abfrage = setTimeout(aktualisieren, 2500);
+}
+
+function neuerStand(s) {
+  const vorher = stand; stand = s;
+  if (!s.ich) { $('#startFehler').textContent = 'Du bist nicht (mehr) in dieser Partie.'; return; }
+  $('#start').classList.add('versteckt');
+  if (s.status === 'lobby') { $('#lobby').classList.remove('versteckt'); $('#spiel').classList.add('versteckt'); lobbyZeigen(); return; }
+  $('#lobby').classList.add('versteckt'); $('#spiel').classList.remove('versteckt');
+  if (!vorher || vorher.status === 'lobby') { letzteLog = Math.max(0, (s.chronik.at(-1)?.n || 0) - 1); groesseAnpassen(); if (stand.groesse > 15 && Math.min(breite, hoehe) < 600) kam.zoom = 1.8; kameraZentrieren(); }
+  effekteAusChronik(s);
+  const neuChat = s.chat.at(-1)?.t || 0;
+  if (neuChat > letzterChat && tab !== 'chat' && letzterChat) ungelesen.chat = true;
+  letzterChat = neuChat;
+  kopfZeigen(); steuerZeigen(); seiteZeigen();
+}
+
+/* ================= LOBBY ================= */
+function lobbyZeigen() {
+  const s = stand, ich = s.spieler.find(p => p.id === s.ich.id), host = s.host === s.ich.id;
+  $('#lobbyCode').textContent = s.code;
+  $('#lager').innerHTML = s.spieler.map(p => `<div class="lagerzeile"><span class="farbpunkt" style="background:${p.farbe};color:${p.farbe}"></span>
+    <b>${esc(p.name)}</b> <span class="leise">${KLASSEN_ICON[p.klasse]} ${INFO.klassen[p.klasse].name}${p.bot ? ' · Bot' : ''}${p.id === s.host ? ' · Gastgeber' : ''}</span>
+    ${host && p.bot ? `<button style="margin-left:auto;padding:4px 10px" data-weg="${p.id}">✕</button>` : ''}</div>`).join('');
+  $('#lager').querySelectorAll('[data-weg]').forEach(b => b.onclick = () => lobbyAendern({ botWeg: b.dataset.weg }));
+  const FARBEN = ['#e8483f', '#3fa7e8', '#f2c230', '#5ad16a', '#b46cf0', '#f08a3c', '#3fe0c8', '#f06cb4', '#9aa6b2', '#c9e84a', '#6c7bf0', '#e8e8e8'];
+  $('#farbwahl').innerHTML = FARBEN.map(f => `<button style="background:${f}" class="${ich.farbe === f ? 'an' : ''}" data-f="${f}" ${s.spieler.some(p => p !== ich && p.farbe === f) ? 'disabled' : ''} aria-label="Farbe"></button>`).join('');
+  $('#farbwahl').querySelectorAll('button').forEach(b => b.onclick = () => lobbyAendern({ farbe: b.dataset.f }));
+  gewaehlteKlasse = ich.klasse;
+  klassenKnopfe($('#klassenwahl2'), () => lobbyAendern({ klasse: gewaehlteKlasse }));
+  $('#hostBox').classList.toggle('versteckt', !host); $('#wartet').classList.toggle('versteckt', host);
+  $('#taktWahl').innerHTML = Object.entries(INFO.takte).map(([m, t]) => `<option value="${m}" ${+m === s.taktMin ? 'selected' : ''}>${t}</option>`).join('');
+}
+async function lobbyAendern(d) { try { neuerStand(await post('lobby', d)); } catch (e) { $('#lobbyFehler').textContent = e.message; } }
+$('#taktWahl').onchange = () => lobbyAendern({ taktMin: $('#taktWahl').value });
+$('#btnBot').onclick = () => lobbyAendern({ botDazu: true });
+$('#btnStart').onclick = async () => { try { neuerStand(await post('starten')); } catch (e) { $('#lobbyFehler').textContent = e.message; } };
+$('#btnLink').onclick = () => { navigator.clipboard?.writeText(location.origin + '/?code=' + stand.code); $('#btnLink').textContent = 'Kopiert!'; };
+
+/* ================= HILFSFUNKTIONEN ================= */
+const ICH = () => stand.spieler.find(p => p.id === stand.ich.id);
+const abst = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+const feldAt = (x, y) => (x < 0 || y < 0 || x >= stand.groesse || y >= stand.groesse) ? '#' : stand.karte[y][x];
+const imSturm = (x, y) => { const m = (stand.groesse - 1) / 2; return Math.max(Math.abs(x - m), Math.abs(y - m)) > stand.sturmRadius; };
+const inPakt = (a, b) => stand.pakte.some(p => p.mitglieder.includes(a) && p.mitglieder.includes(b));
+function reichweite(p) { return p.reichweite + (feldAt(p.x, p.y) === 'B' ? 1 : 0) - (stand.ereignis === 'nebel' ? 1 : 0); }
+function zeitText(ms) { ms = Math.max(0, ms); const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} h ${m} min` : m ? `${m}:${String(s % 60).padStart(2, '0')}` : `${s % 60} s`; }
+
+async function tun(d) {
+  try { neuerStand(await post('aktion', d)); modus = null; hinweis(''); popupZu(); }
+  catch (e) { hinweis('⚠️ ' + e.message, 2600); }
+}
+let hinweisTimer;
+function hinweis(t, ms) {
+  clearTimeout(hinweisTimer); hinweisText = t;
+  $('#hinweis').textContent = t; $('#hinweis').classList.toggle('versteckt', !t);
+  if (ms) hinweisTimer = setTimeout(() => hinweis(modus ? modus.text : ''), ms);
+}
+
+/* ================= KOPFLEISTE & STEUERUNG ================= */
+function kopfZeigen() {
+  const ich = ICH(), lebende = stand.spieler.filter(p => p.lebt).length;
+  const ev = { blutmond: '🌕 Blutmond', nebel: '🌫️ Nebel', nachschub: '🪂 Luftbrücke', beben: '🌍 Beben' }[stand.ereignis];
+  $('#kopf').innerHTML = `
+    ${ich.lebt ? `<span class="chip ap">⚡ ${ich.ap} AP</span><span class="chip">${'❤️'.repeat(ich.herzen)}${'🛡️'.repeat(ich.ruestung)}</span>` : '<span class="chip" style="color:var(--geist)">👻 Du bist ein Geist</span>'}
+    <span class="chip">Takt ${stand.takt} · nächster in <span id="uhr"></span></span>
+    <span class="chip">🛡️ ${lebende} übrig</span>
+    ${ev ? `<span class="chip ev">${ev}</span>` : ''}
+    ${stand.titan && stand.titan.hp > 0 ? `<span class="chip" style="color:var(--glut)">🔥 Titan ${stand.titan.hp}/${stand.titan.max}</span>` : (!stand.titan ? `<span class="chip leise">Titan in ${Math.max(0, stand.titanTakt - stand.takt)} Takten</span>` : '')}`;
+  uhr();
+}
+function uhr() { const u = $('#uhr'); if (u && stand) u.textContent = stand.status === 'vorbei' ? '–' : zeitText(stand.naechsterTakt - Date.now() - (stand.jetzt - Date.now() > 0 ? 0 : 0)); }
+setInterval(uhr, 1000);
+
+function steuerZeigen() {
+  const ich = ICH(), box = $('#steuer');
+  if (stand.status === 'vorbei') {
+    const s = stand.spieler.find(p => p.id === stand.sieger);
+    box.innerHTML = `<button class="haupt" onclick="location.href='/'">${s ? '👑 ' + esc(s.name) + ' gewinnt' : 'Vorbei'} · Neue Schlacht</button>`; return;
+  }
+  if (!ich.lebt) { box.innerHTML = `<button onclick="tabWechseln('rat')">👻 Zum Geisterrat</button>`; return; }
+  const k = INFO.klassen[ich.klasse];
+  box.innerHTML = `
+    <button id="bZentrum">🎯</button>
+    <button id="bAuf" ${ich.ap < 2 ? 'disabled' : ''}>🔧 Rohr +1 (2)</button>
+    <button id="bFaeh" ${ich.ap < k.kosten ? 'disabled' : ''}>${KLASSEN_ICON[ich.klasse]} ${k.faehigkeit} (${k.kosten})</button>`;
+  $('#bZentrum').onclick = kameraZentrieren;
+  $('#bAuf').onclick = () => tun({ typ: 'aufruesten' });
+  $('#bFaeh').onclick = () => {
+    if (ich.klasse === 'spaeher') return tun({ typ: 'faehigkeit' });
+    if (ich.klasse === 'ingenieur') { modus = { art: 'reparatur', text: 'Tippe auf dich oder einen Panzer in Reichweite' }; }
+    if (ich.klasse === 'sturm') { modus = { art: 'sturmlauf', text: 'Tippe in die Richtung, in die du preschen willst' }; }
+    if (ich.klasse === 'artillerie') { modus = { art: 'hagel', text: 'Tippe auf das Zentrum des Granatenhagels' }; }
+    hinweis(modus.text);
+  };
+}
+
+/* ================= SEITENLEISTE ================= */
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => tabWechseln(b.dataset.tab));
+function tabWechseln(t) { tab = t; ungelesen[t] = false; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('an', b.dataset.tab === t)); seiteZeigen(true); }
+
+function seiteZeigen(erzwingen) {
+  document.querySelectorAll('#tabs button').forEach(b => { b.querySelector('.punkt')?.remove(); if (ungelesen[b.dataset.tab]) b.insertAdjacentHTML('beforeend', '<span class="punkt"></span>'); });
+  const box = $('#tabinhalt');
+  if (tab === 'chat' && !erzwingen && document.activeElement?.id === 'chatText') { chatListe(); return; }
+  if (tab === 'panzer') {
+    const liste = stand.spieler.slice().sort((a, b) => (b.lebt - a.lebt) || (a.platz - b.platz) || (b.kills - a.kills));
+    const ich = ICH();
+    box.innerHTML = (stand.angebote.filter(a => a.an === ich.id).map(a => `<div class="kasten">📜 <b>${esc(name(a.von))}</b> bietet dir einen Blutpakt an.
+      <div class="reihe" style="margin-top:8px"><button class="haupt" data-ann="${a.von}">Annehmen</button></div></div>`).join('')) +
+      liste.map(p => `<div class="zeile ${p.lebt ? '' : 'tot'}" data-p="${p.id}">
+      <span class="farbpunkt" style="background:${p.farbe};color:${p.farbe}"></span>
+      <div><b>${esc(p.name)}</b>${p.id === ich.id ? ' <span class="leise">(du)</span>' : ''}${inPakt(p.id, ich.id) ? ' 🩸' : ''}${p.verraeter ? ' 🗡️'.repeat(Math.min(3, p.verraeter)) : ''}${p.titanbezwinger ? ' 🔥' : ''}
+      <div class="leise" style="font-size:12px">${KLASSEN_ICON[p.klasse]} ${INFO.klassen[p.klasse].name}${p.bot ? ' · Bot' : ''}${p.getarnt ? ' · getarnt' : ''}</div></div>
+      <div class="werte">${p.lebt ? `${'❤️'.repeat(p.herzen)}${'🛡️'.repeat(p.ruestung)}<br>⚡${p.ap} · 🎯${p.reichweite} · 💀${p.kills}` : `👻 Platz ${p.platz} · 💀${p.kills}`}</div></div>`).join('') +
+      `<p class="leise" style="font-size:12px">🩸 Pakt · 🗡️ Verräter · 🔥 Titanbezwinger</p>`;
+    box.querySelectorAll('[data-ann]').forEach(b => b.onclick = () => tun({ typ: 'pakt', ziel: b.dataset.ann }));
+    box.querySelectorAll('[data-p]').forEach(z => z.onclick = () => { const p = stand.spieler.find(q => q.id === z.dataset.p); if (p.x >= 0) { kam.x = p.x + .5; kam.y = p.y + .5; } });
+  }
+  if (tab === 'chronik') {
+    box.innerHTML = '<div class="chronik">' + stand.chronik.slice().reverse().map(c => `<div class="${c.art}">${esc(c.text)}</div>`).join('') + '</div>';
+  }
+  if (tab === 'chat') {
+    const andere = stand.spieler.filter(p => p.id !== stand.ich.id);
+    box.innerHTML = `<div class="chat"><div class="chatliste" id="chatListe"></div>
+      <div class="chateingabe"><select id="chatAn"><option value="">An alle</option>${andere.map(p => `<option value="${p.id}">🤫 ${esc(p.name)}</option>`).join('')}</select>
+      <input id="chatText" maxlength="240" placeholder="Funkspruch …"><button id="chatSenden">➤</button></div></div>`;
+    const senden = async () => { const t = $('#chatText').value.trim(); if (!t) return; $('#chatText').value = '';
+      try { neuerStand(await post('chat', { text: t, an: $('#chatAn').value || undefined })); } catch (e) { hinweis('⚠️ ' + e.message, 2000); } };
+    $('#chatSenden').onclick = senden; $('#chatText').onkeydown = e => { if (e.key === 'Enter') senden(); };
+    chatListe();
+  }
+  if (tab === 'rat') {
+    const ich = ICH(), geister = stand.spieler.filter(p => !p.lebt);
+    if (ich.lebt) { box.innerHTML = `<div class="geisterrat"><p>Die Gefallenen beobachten dich. Jeden Takt segnen (+1 AP) oder verfluchen (−1 AP) sie einen Lebenden mit Mehrheit.</p>
+      <p class="leise">Im Rat: ${geister.length ? geister.map(g => esc(g.name)).join(', ') : 'noch niemand'}</p><p class="leise">Tipp: Sei nett zu den Geistern im Funk.</p></div>`; return; }
+    const lebende = stand.spieler.filter(p => p.lebt), st = stand.ich.stimme;
+    box.innerHTML = `<div class="geisterrat"><p>👻 Du bist gefallen, aber nicht vergessen. Wähle für diesen Takt <b>einen</b> Lebenden:</p>
+      ${st ? `<div class="kasten">Deine Stimme: ${st.art === 'segen' ? '✨ Segen' : '💀 Fluch'} für <b>${esc(name(st.ziel))}</b></div>` : ''}
+      ${lebende.map(p => `<div class="zeile"><span class="farbpunkt" style="background:${p.farbe}"></span><b>${esc(p.name)}</b>
+      <span style="margin-left:auto;display:flex;gap:4px"><button data-s="${p.id}" data-a="segen">✨</button><button data-s="${p.id}" data-a="fluch" class="gefahr">💀</button></span></div>`).join('')}</div>`;
+    box.querySelectorAll('[data-s]').forEach(b => b.onclick = () => tun({ typ: 'stimme', ziel: b.dataset.s, art: b.dataset.a }));
+  }
+}
+function chatListe() {
+  const l = $('#chatListe'); if (!l) return;
+  const unten = l.scrollHeight - l.scrollTop - l.clientHeight < 40;
+  l.innerHTML = stand.chat.map(c => `<div class="${c.privat ? 'flüster' : ''}"><b style="color:${c.farbe}">${c.geist ? '👻 ' : ''}${esc(c.name)}</b>${c.privat ? ` → ${esc(name(c.privat.find(i => i !== c.von)))}` : ''}: ${esc(c.text)}</div>`).join('') || '<p class="leise">Noch Funkstille.</p>';
+  if (unten) l.scrollTop = l.scrollHeight;
+}
+const name = id => (stand.spieler.find(p => p.id === id) || {}).name || '?';
+
+/* ================= SCHLACHTFELD ================= */
+const cv = $('#feld'), cx = cv.getContext('2d');
+const kam = { x: 8, y: 8, zoom: 1 };
+let breite = 0, hoehe = 0, dpr = 1, wackeln = 0;
+const effekte = [], partikel = [];
+
+function groesseAnpassen() {
+  const r = cv.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1);
+  breite = r.width; hoehe = r.height; cv.width = breite * dpr; cv.height = hoehe * dpr;
+}
+addEventListener('resize', groesseAnpassen);
+function kameraZentrieren() { if (!stand) return; kam.x = kam.y = stand.groesse / 2;
+  if (kam.zoom > 1.05) { const i = ICH(); if (i && i.x >= 0) { kam.x = i.x + .5; kam.y = i.y + .5; } } }
+function kameraBegrenzen() { if (!stand?.groesse) return; const n = stand.groesse; kam.x = Math.max(0, Math.min(n, kam.x)); kam.y = Math.max(0, Math.min(n, kam.y)); }
+const zelle = () => Math.max(14, Math.min(breite, hoehe) / (stand.groesse + .6)) * kam.zoom;
+const zuBild = (x, y) => { const z = zelle(); return [breite / 2 + (x - kam.x) * z, hoehe / 2 + (y - kam.y) * z]; };
+const zuFeld = (px, py) => { const z = zelle(); return [Math.floor(kam.x + (px - breite / 2) / z), Math.floor(kam.y + (py - hoehe / 2) / z)]; };
+
+// fester Zufall pro Feld, damit das Gelände nicht flackert
+const hash = (x, y, s = 0) => { let h = (x * 374761393 + y * 668265263 + s * 2246822519) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+function zeichnen(t) {
+  requestAnimationFrame(zeichnen);
+  if (!stand || stand.status === 'lobby' || !breite) return;
+  kameraBegrenzen();
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx.fillStyle = '#070605'; cx.fillRect(0, 0, breite, hoehe);
+  cx.save();
+  if (wackeln > 0) { cx.translate((Math.random() - .5) * wackeln, (Math.random() - .5) * wackeln); wackeln *= .9; if (wackeln < .3) wackeln = 0; }
+  const z = zelle(), n = stand.groesse, ich = ICH();
+  const [x0, y0] = zuFeld(0, 0), [x1, y1] = zuFeld(breite, hoehe);
+  // Gelände
+  for (let y = Math.max(0, y0); y <= Math.min(n - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(n - 1, x1); x++) {
+    const [px, py] = zuBild(x, y), f = stand.karte[y][x], h = hash(x, y);
+    const boden = f === '~' ? `hsl(205,55%,${18 + h * 4}%)` : f === 'R' ? `hsl(15,30%,${12 + h * 3}%)` : `hsl(${70 + h * 20},${18 + h * 8}%,${17 + h * 5}%)`;
+    cx.fillStyle = boden; cx.fillRect(px, py, z + .5, z + .5);
+    if (f === '~') { cx.strokeStyle = 'rgba(160,210,255,.18)'; cx.lineWidth = 1.5; cx.beginPath(); const w = Math.sin(t / 700 + x + y) * z * .08;
+      cx.moveTo(px + z * .15, py + z * .5 + w); cx.quadraticCurveTo(px + z * .5, py + z * .35 - w, px + z * .85, py + z * .5 + w); cx.stroke(); }
+    if (f === 'F') { cx.fillStyle = 'rgba(90,140,180,.35)'; cx.fillRect(px, py, z, z); cx.fillStyle = '#6b5a45'; for (let i = 0; i < 3; i++) { cx.beginPath(); cx.arc(px + z * (.25 + i * .25), py + z * (.4 + hash(x, y, i) * .2), z * .09, 0, 7); cx.fill(); } }
+    if (f === 'W') for (let i = 0; i < 3; i++) { const ax = px + z * (.2 + hash(x, y, i) * .6), ay = py + z * (.25 + hash(x, y, i + 5) * .5);
+      cx.fillStyle = `hsl(${120 + i * 8},35%,${20 + i * 4}%)`; cx.beginPath(); cx.moveTo(ax, ay - z * .28); cx.lineTo(ax + z * .18, ay + z * .14); cx.lineTo(ax - z * .18, ay + z * .14); cx.fill(); }
+    if (f === 'B') { cx.fillStyle = '#5a5048'; cx.beginPath(); cx.moveTo(px + z * .08, py + z * .9); cx.lineTo(px + z * .5, py + z * .12); cx.lineTo(px + z * .92, py + z * .9); cx.fill();
+      cx.fillStyle = '#d9d2c8'; cx.beginPath(); cx.moveTo(px + z * .37, py + z * .36); cx.lineTo(px + z * .5, py + z * .12); cx.lineTo(px + z * .63, py + z * .36); cx.fill(); }
+    if (f === 'R') { cx.strokeStyle = `rgba(255,${90 + 40 * Math.sin(t / 400 + x)},20,.35)`; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(px + z * hash(x, y, 1), py); cx.lineTo(px + z * .5, py + z * .5); cx.lineTo(px + z * hash(x, y, 2), py + z); cx.stroke(); }
+    cx.strokeStyle = 'rgba(0,0,0,.18)'; cx.lineWidth = 1; cx.strokeRect(px, py, z, z);
+  }
+  // Sturm
+  for (let y = Math.max(0, y0); y <= Math.min(n - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(n - 1, x1); x++) if (imSturm(x, y)) {
+    const [px, py] = zuBild(x, y); cx.fillStyle = `rgba(${110 + 30 * Math.sin(t / 900 + x * .7 + y * .3)},30,${150 + 40 * Math.sin(t / 600 + y)},.45)`; cx.fillRect(px, py, z + .5, z + .5);
+  }
+  { const m = (n - 1) / 2, r = stand.sturmRadius; const [a, b] = zuBild(m - r, m - r);
+    cx.strokeStyle = `rgba(210,120,255,${.6 + .3 * Math.sin(t / 300)})`; cx.lineWidth = 3; cx.setLineDash([10, 6]); cx.lineDashOffset = -t / 40; cx.strokeRect(a, b, (2 * r + 1) * z, (2 * r + 1) * z); cx.setLineDash([]); }
+  // Reichweite
+  if (ich && ich.lebt && ich.x >= 0) {
+    const r = reichweite(ich); const [a, b] = zuBild(ich.x - r, ich.y - r);
+    cx.fillStyle = modus?.art === 'hagel' ? 'rgba(255,120,40,.07)' : 'rgba(255,200,120,.06)'; cx.fillRect(a, b, (2 * r + 1) * z, (2 * r + 1) * z);
+    cx.strokeStyle = 'rgba(255,200,120,.45)'; cx.lineWidth = 1.5; cx.strokeRect(a, b, (2 * r + 1) * z, (2 * r + 1) * z);
+    // Fahr-Ziele
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const fx = ich.x + dx, fy = ich.y + dy, f = feldAt(fx, fy);
+      if (f === '#' || f === '~' || besetzt(fx, fy)) continue; const [px, py] = zuBild(fx, fy);
+      cx.fillStyle = 'rgba(255,230,160,.12)'; cx.fillRect(px + 2, py + 2, z - 4, z - 4); }
+  }
+  // Hagel-Vorschau
+  if (modus?.art === 'hagel' && maus) { const [mx, my] = zuFeld(maus[0], maus[1]); const [px, py] = zuBild(mx - 1, my - 1); cx.fillStyle = 'rgba(255,80,20,.25)'; cx.fillRect(px, py, 3 * z, 3 * z); }
+  // Kisten
+  for (const k of stand.kisten) { const [px, py] = zuBild(k.x, k.y), hp = Math.sin(t / 300 + k.x) * z * .04;
+    cx.fillStyle = 'rgba(255,220,120,.25)'; cx.beginPath(); cx.arc(px + z / 2, py + z / 2, z * .42, 0, 7); cx.fill();
+    cx.fillStyle = '#8a5a2b'; cx.fillRect(px + z * .25, py + z * .28 + hp, z * .5, z * .44); cx.strokeStyle = '#f2c230'; cx.lineWidth = 2; cx.strokeRect(px + z * .25, py + z * .28 + hp, z * .5, z * .44);
+    cx.font = `${z * .3}px sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText({ ap: '⚡', herz: '❤️', ruestung: '🛡️', rohr: '🎯' }[k.art], px + z / 2, py + z / 2 + hp); }
+  // Pakt-Linien
+  for (const p of stand.pakte) { const [a, b] = p.mitglieder.map(id => stand.spieler.find(s => s.id === id)); if (!a || !b || a.x < 0 || b.x < 0) continue;
+    const [ax, ay] = zuBild(a.x + .5, a.y + .5), [bx, by] = zuBild(b.x + .5, b.y + .5);
+    cx.strokeStyle = 'rgba(232,72,63,.5)'; cx.lineWidth = 2; cx.setLineDash([3, 6]); cx.beginPath(); cx.moveTo(ax, ay); cx.lineTo(bx, by); cx.stroke(); cx.setLineDash([]); }
+  // Titan
+  if (stand.titan && stand.titan.hp > 0) titanZeichnen(t, z);
+  // Panzer
+  for (const p of stand.spieler) if (p.x >= 0) panzerZeichnen(p, t, z, ich);
+  // Effekte
+  for (let i = effekte.length - 1; i >= 0; i--) { const e = effekte[i]; e.t += 1; if (effektZeichnen(e, z)) effekte.splice(i, 1); }
+  for (let i = partikel.length - 1; i >= 0; i--) { const q = partikel[i]; q.x += q.vx; q.y += q.vy; q.vy += q.g || 0; q.l -= 1;
+    if (q.l <= 0) { partikel.splice(i, 1); continue; } const [px, py] = zuBild(q.x, q.y); cx.globalAlpha = Math.min(1, q.l / 30); cx.fillStyle = q.f; cx.beginPath(); cx.arc(px, py, q.r * z, 0, 7); cx.fill(); cx.globalAlpha = 1; }
+  cx.restore();
+  // Blutmond-Tönung
+  if (stand.ereignis === 'blutmond') { cx.fillStyle = `rgba(160,0,0,${.12 + .05 * Math.sin(t / 500)})`; cx.fillRect(0, 0, breite, hoehe); }
+  if (stand.ereignis === 'nebel') { const g = cx.createRadialGradient(breite / 2, hoehe / 2, Math.min(breite, hoehe) * .2, breite / 2, hoehe / 2, Math.max(breite, hoehe) * .7); g.addColorStop(0, 'rgba(200,200,210,0)'); g.addColorStop(1, 'rgba(200,200,210,.45)'); cx.fillStyle = g; cx.fillRect(0, 0, breite, hoehe); }
+  // Vignette
+  const v = cx.createRadialGradient(breite / 2, hoehe / 2, Math.min(breite, hoehe) * .35, breite / 2, hoehe / 2, Math.max(breite, hoehe) * .75); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.6)'); cx.fillStyle = v; cx.fillRect(0, 0, breite, hoehe);
+}
+const besetzt = (x, y) => stand.spieler.some(p => p.lebt && p.x === x && p.y === y) || (stand.titan && stand.titan.hp > 0 && stand.titan.x === x && stand.titan.y === y);
+
+function panzerZeichnen(p, t, z, ich) {
+  const [px, py] = zuBild(p.x + .5, p.y + .5);
+  if (!p.lebt) { cx.globalAlpha = .55; cx.font = `${z * .5}px sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('🔥', px, py - Math.sin(t / 300) * 2); cx.globalAlpha = 1;
+    cx.fillStyle = '#222'; cx.fillRect(px - z * .3, py + z * .05, z * .6, z * .22); return; }
+  cx.save(); cx.translate(px, py);
+  if (p.getarnt) cx.globalAlpha = .4;
+  if (p.id === ich.id) { cx.strokeStyle = `rgba(255,220,120,${.6 + .4 * Math.sin(t / 250)})`; cx.lineWidth = 2.5; cx.beginPath(); cx.arc(0, 0, z * .48, 0, 7); cx.stroke(); }
+  // Turm zielt auf den nächsten Gegner
+  let w = p.winkel ?? -Math.PI / 2;
+  const nah = stand.spieler.filter(q => q.lebt && q !== p && q.x >= 0 && !inPakt(p.id, q.id)).sort((a, b) => abst(a, p) - abst(b, p))[0];
+  if (nah) { const soll = Math.atan2(nah.y - p.y, nah.x - p.x); let d = soll - w; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; w += d * .05; }
+  p.winkel = w;
+  const s = z * .36;
+  cx.fillStyle = 'rgba(0,0,0,.35)'; cx.beginPath(); cx.ellipse(s * .1, s * .2, s * 1.05, s * .85, 0, 0, 7); cx.fill();
+  cx.fillStyle = '#1b1b1b'; cx.fillRect(-s, -s * .85, s * 2, s * .4); cx.fillRect(-s, s * .45, s * 2, s * .4);
+  cx.fillStyle = p.farbe; roundRect(-s * .85, -s * .55, s * 1.7, s * 1.1, s * .25); cx.fill();
+  cx.strokeStyle = 'rgba(0,0,0,.4)'; cx.lineWidth = 1.5; cx.stroke();
+  cx.rotate(w); cx.fillStyle = '#2a2a2a'; cx.fillRect(0, -s * .12, s * 1.25, s * .24);
+  cx.fillStyle = p.farbe; cx.beginPath(); cx.arc(0, 0, s * .45, 0, 7); cx.fill(); cx.strokeStyle = 'rgba(0,0,0,.45)'; cx.stroke();
+  cx.restore();
+  // Name + Herzen
+  cx.font = `700 ${Math.max(10, z * .2)}px Bricolage, sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'bottom';
+  cx.fillStyle = 'rgba(0,0,0,.7)'; const tw = cx.measureText(p.name).width + 8; cx.fillRect(px - tw / 2, py - z * .72, tw, Math.max(12, z * .22));
+  cx.fillStyle = p.farbe; cx.fillText(p.name, px, py - z * .5);
+  const hz = Math.max(4, z * .08), gesamt = p.herzen + p.ruestung;
+  for (let i = 0; i < gesamt; i++) { cx.fillStyle = i < p.herzen ? '#e8483f' : '#9fd8ff'; cx.fillRect(px - gesamt * hz * .6 + i * hz * 1.2, py + z * .4, hz, hz); }
+  if (p.ap) { cx.font = `800 ${Math.max(10, z * .2)}px Bricolage`; cx.fillStyle = '#f2c230'; cx.textBaseline = 'top'; cx.fillText('⚡' + p.ap, px + z * .36, py - z * .48); }
+}
+function roundRect(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
+
+function titanZeichnen(t, z) {
+  const T = stand.titan, [px, py] = zuBild(T.x + .5, T.y + .5), puls = 1 + .06 * Math.sin(t / 200);
+  const g = cx.createRadialGradient(px, py, 0, px, py, z * 3.2); g.addColorStop(0, 'rgba(255,110,20,.4)'); g.addColorStop(1, 'rgba(255,60,0,0)'); cx.fillStyle = g; cx.beginPath(); cx.arc(px, py, z * 3.2, 0, 7); cx.fill();
+  cx.strokeStyle = 'rgba(255,120,40,.35)'; cx.setLineDash([4, 6]); const [a, b] = zuBild(T.x - 3, T.y - 3); cx.strokeRect(a, b, 7 * z, 7 * z); cx.setLineDash([]);
+  cx.save(); cx.translate(px, py); cx.scale(puls, puls);
+  cx.fillStyle = '#2a1208'; cx.beginPath(); for (let i = 0; i < 10; i++) { const r = z * (i % 2 ? .42 : .7), w = i / 10 * Math.PI * 2 + t / 3000; cx.lineTo(Math.cos(w) * r, Math.sin(w) * r); } cx.closePath(); cx.fill();
+  cx.strokeStyle = '#ff6a1a'; cx.lineWidth = 2; cx.stroke();
+  cx.fillStyle = '#ffcc33'; cx.beginPath(); cx.arc(-z * .14, -z * .05, z * .07, 0, 7); cx.arc(z * .14, -z * .05, z * .07, 0, 7); cx.fill();
+  cx.restore();
+  if (Math.random() < .3) partikel.push({ x: T.x + .5 + (Math.random() - .5) * .8, y: T.y + .5, vx: (Math.random() - .5) * .01, vy: -.02 - Math.random() * .02, l: 40, r: .04 + Math.random() * .05, f: Math.random() < .5 ? '#ff7a2a' : '#ffcc33' });
+  const bw = z * 1.4; cx.fillStyle = '#000a'; cx.fillRect(px - bw / 2, py - z * .95, bw, 6); cx.fillStyle = '#ff6a1a'; cx.fillRect(px - bw / 2, py - z * .95, bw * T.hp / T.max, 6);
+}
+
+/* ---------- Effekte aus der Chronik ---------- */
+function effekteAusChronik(s) {
+  const neu = s.chronik.filter(c => c.n > letzteLog);
+  if (!neu.length) return;
+  letzteLog = neu.at(-1).n;
+  if (neu.length > 25) return;   // nach langer Abwesenheit nicht alles abspielen
+  let verz = 0;
+  for (const c of neu) {
+    setTimeout(() => {
+      if (c.art === 'schuss' || c.art === 'titan' && c.von) effekte.push({ art: 'schuss', von: c.von, ziel: c.ziel, t: 0, f: c.art === 'titan' ? '#ff7a2a' : '#ffe08a' });
+      if (c.art === 'hagel') effekte.push({ art: 'hagel', von: c.von, ziel: c.ziel, t: 0 });
+      if (c.art === 'geschenk') effekte.push({ art: 'geschenk', von: c.von, ziel: c.ziel, t: 0 });
+      if (c.art === 'tod') { explosion(c.ziel, 60, '#ff7a2a'); wackeln = 18; banner('💥 ' + c.text.split(' zerstört ')[1]?.split(/ und | tritt/)[0] + ' ZERSTÖRT', '#ff7a2a', c.text); }
+      if (c.art === 'kiste') funken(c.ziel, '#f2c230');
+      if (c.art === 'verrat') banner('🗡️ VERRAT!', '#e8483f');
+      if (c.art === 'ereignis') banner({ blutmond: '🌕 BLUTMOND', nebel: '🌫️ NEBEL', nachschub: '🪂 LUFTBRÜCKE', beben: '🌍 ERDBEBEN' }[c.ereignis], c.ereignis === 'blutmond' ? '#ff4a3a' : '#d7c7ff'), c.ereignis === 'beben' && (wackeln = 25);
+      if (c.art === 'titan' && !c.von) { banner(/FÄLLT/.test(c.text) ? '☠️ DER TITAN FÄLLT' : '🔥 DER TITAN ERWACHT', '#ff7a2a'); wackeln = 30; explosion(c.ziel, 90, '#ffcc33'); }
+      if (c.art === 'sieg') banner(c.text.startsWith('👑') ? '👑 SIEG' : 'ENDE', '#f2c230');
+      if (c.art === 'sturm' && !c.ziel) banner('🌪️ DER STURM RÜCKT NÄHER', '#c58aff');
+      if (c.art === 'geist') ungelesen.rat = tab !== 'rat';
+    }, verz);
+    if (c.von || c.art === 'tod' || c.art === 'ereignis') verz += 350;
+  }
+  if (tab !== 'chronik') ungelesen.chronik = true;
+}
+function explosion(p, n, f) { if (!p) return; for (let i = 0; i < n; i++) { const w = Math.random() * 7, v = Math.random() * .08; partikel.push({ x: p.x + .5, y: p.y + .5, vx: Math.cos(w) * v, vy: Math.sin(w) * v, l: 30 + Math.random() * 40, r: .03 + Math.random() * .08, f: Math.random() < .3 ? '#555' : f }); } }
+function funken(p, f) { if (!p) return; for (let i = 0; i < 24; i++) { const w = Math.random() * 7; partikel.push({ x: p.x + .5, y: p.y + .5, vx: Math.cos(w) * .03, vy: Math.sin(w) * .03 - .03, g: .002, l: 40, r: .03, f }); } }
+function effektZeichnen(e, z) {
+  if (!e.von || !e.ziel) return true;
+  const [ax, ay] = zuBild(e.von.x + .5, e.von.y + .5), [bx, by] = zuBild(e.ziel.x + .5, e.ziel.y + .5), d = 18, k = Math.min(1, e.t / d);
+  if (e.art === 'schuss') {
+    const x = ax + (bx - ax) * k, y = ay + (by - ay) * k;
+    cx.strokeStyle = e.f; cx.lineWidth = 3; cx.shadowColor = e.f; cx.shadowBlur = 12;
+    cx.beginPath(); cx.moveTo(ax + (bx - ax) * Math.max(0, k - .25), ay + (by - ay) * Math.max(0, k - .25)); cx.lineTo(x, y); cx.stroke(); cx.shadowBlur = 0;
+    if (e.t === d) { explosion(e.ziel, 25, e.f); wackeln = Math.max(wackeln, 8); }
+    return e.t > d;
+  }
+  if (e.art === 'hagel') {
+    for (let i = 0; i < 6; i++) { const kk = Math.min(1, Math.max(0, (e.t - i * 4) / d)); if (!kk || kk >= 1) continue; const ox = (hash(i, 1) - .5) * 3 * z, oy = (hash(i, 2) - .5) * 3 * z;
+      const x = ax + (bx + ox - ax) * kk, y = ay + (by + oy - ay) * kk - Math.sin(kk * Math.PI) * z * 2; cx.fillStyle = '#ff7a2a'; cx.beginPath(); cx.arc(x, y, 4, 0, 7); cx.fill(); }
+    if (e.t === d + 20) { for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) explosion({ x: e.ziel.x + dx, y: e.ziel.y + dy }, 10, '#ff7a2a'); wackeln = 20; }
+    return e.t > d + 20;
+  }
+  if (e.art === 'geschenk') {
+    const x = ax + (bx - ax) * k, y = ay + (by - ay) * k - Math.sin(k * Math.PI) * z * .8;
+    cx.font = `${z * .35}px sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('✨', x, y);
+    if (e.t === d) funken(e.ziel, '#5ad16a');
+    return e.t > d;
+  }
+  return true;
+}
+let bannerTimer;
+function banner(text, farbe) { if (!text) return; const b = $('#banner'); b.firstElementChild.textContent = text; b.firstElementChild.style.color = farbe; b.classList.add('zeigen'); clearTimeout(bannerTimer); bannerTimer = setTimeout(() => b.classList.remove('zeigen'), 2200); }
+
+/* ---------- Eingabe ---------- */
+let maus = null, ziehen = null, gezogen = false;
+cv.addEventListener('pointerdown', e => { ziehen = { x: e.offsetX, y: e.offsetY, kx: kam.x, ky: kam.y }; gezogen = false; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { maus = [e.offsetX, e.offsetY];
+  if (ziehen) { const dx = e.offsetX - ziehen.x, dy = e.offsetY - ziehen.y; if (Math.hypot(dx, dy) > 8) gezogen = true;
+    if (gezogen) { kam.x = ziehen.kx - dx / zelle(); kam.y = ziehen.ky - dy / zelle(); popupZu(); } } });
+cv.addEventListener('pointerup', e => { if (ziehen && !gezogen) klick(e.offsetX, e.offsetY); ziehen = null; });
+cv.addEventListener('wheel', e => { e.preventDefault(); kam.zoom = Math.max(.5, Math.min(2.5, kam.zoom * (e.deltaY < 0 ? 1.1 : .9))); }, { passive: false });
+addEventListener('keydown', e => {
+  if (!stand || stand.status !== 'laeuft' || /INPUT|SELECT/.test(document.activeElement?.tagName)) return;
+  const r = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], q: [-1, -1], e: [1, -1], y: [-1, 1], z: [-1, 1], c: [1, 1] }[e.key];
+  if (r) { e.preventDefault(); tun({ typ: 'fahren', dx: r[0], dy: r[1] }); }
+  if (e.key === 'Escape') { modus = null; hinweis(''); popupZu(); }
+  if (e.key === '+') kam.zoom = Math.min(2.5, kam.zoom * 1.15); if (e.key === '-') kam.zoom = Math.max(.5, kam.zoom / 1.15);
+});
+
+function klick(mx, my) {
+  if (!stand || stand.status !== 'laeuft') return;
+  const ich = ICH(); popupZu();
+  const [fx, fy] = zuFeld(mx, my);
+  const p = stand.spieler.find(q => q.lebt && q.x === fx && q.y === fy);
+  const titan = stand.titan && stand.titan.hp > 0 && stand.titan.x === fx && stand.titan.y === fy;
+  if (!ich.lebt) { if (p) popup(mx, my, p); return; }
+  if (modus) {
+    const m = modus.art;
+    if (m === 'sturmlauf') return tun({ typ: 'faehigkeit', dx: Math.sign(fx - ich.x), dy: Math.sign(fy - ich.y) });
+    if (m === 'hagel') return tun({ typ: 'faehigkeit', x: fx, y: fy });
+    if (m === 'reparatur') return tun({ typ: 'faehigkeit', ziel: p ? p.id : ich.id });
+  }
+  if (titan) return popup(mx, my, 'titan');
+  if (p && p.id !== ich.id) return popup(mx, my, p);
+  if (p && p.id === ich.id) return popup(mx, my, p);
+  if (abst(ich, { x: fx, y: fy }) === 1) return tun({ typ: 'fahren', dx: fx - ich.x, dy: fy - ich.y });
+  const f = feldAt(fx, fy);
+  const info = { '.': 'Ebene', 'W': '🌲 Wald – hier kann man dich nur aus 2 Feldern treffen', 'B': '⛰️ Berg – +1 Reichweite, Auffahrt kostet 2 AP', '~': '🌊 Fluss – unpassierbar', 'F': '🪨 Furt – hier kommt man über den Fluss', 'R': '🔥 Titanenspalt' }[f];
+  if (info) hinweis(info + (imSturm(fx, fy) ? ' · 🌪️ im Sturm' : ''), 2500);
+}
+
+function popup(mx, my, p) {
+  const ich = ICH(), box = $('#popup');
+  let html = '', knopfe = [];
+  if (p === 'titan') {
+    const T = stand.titan;
+    html = `<h3>🔥 Der Titan</h3><div class="leise">${T.hp}/${T.max} Leben · speit jeden Takt Feuer auf die 2 nächsten Panzer (3 Felder). Der letzte Treffer bringt +3 AP und 2 Rüstung.</div>`;
+    if (ich.lebt) knopfe.push([`💥 Feuer! (1 AP)`, () => tun({ typ: 'schuss', ziel: 'titan' }), ich.ap < 1 || abst(ich, T) > reichweite(ich)]);
+  } else {
+    const k = INFO.klassen[p.klasse], d = abst(ich, p), inRw = d <= reichweite(ich);
+    html = `<h3 style="color:${p.farbe}">${esc(p.name)}${p.bot ? ' 🤖' : ''}</h3><div class="leise">${KLASSEN_ICON[p.klasse]} ${k.name} · ${'❤️'.repeat(p.herzen)}${'🛡️'.repeat(p.ruestung)} · ⚡${p.ap} · 🎯${p.reichweite}${p.id !== ich.id ? ` · ${d} Felder weg` : ''}</div>`;
+    if (p.id === ich.id) {
+      html += `<div class="leise" style="margin-top:6px;font-size:13px">${k.text}</div>`;
+      if (ich.klasse === 'ingenieur') knopfe.push(['🛠️ Selbst reparieren (2 AP)', () => tun({ typ: 'faehigkeit', ziel: ich.id }), ich.ap < 2]);
+    } else if (ich.lebt) {
+      const pakt = inPakt(ich.id, p.id), wald = feldAt(p.x, p.y) === 'W' && d > (p.klasse === 'spaeher' ? 1 : 2);
+      knopfe.push([pakt ? '🗡️ Verraten und feuern (1 AP)' : `💥 Feuer! (1 AP)${wald ? ' – im Wald versteckt' : ''}`, () => tun({ typ: 'schuss', ziel: p.id }), ich.ap < 1 || !inRw || wald]);
+      knopfe.push(['🎁 1 AP schenken', () => tun({ typ: 'schenken', ziel: p.id }), ich.ap < 1 || !inRw]);
+      if (ich.klasse === 'ingenieur') knopfe.push(['🛠️ Reparieren (2 AP)', () => tun({ typ: 'faehigkeit', ziel: p.id }), ich.ap < 2 || !inRw]);
+      const angeboten = stand.angebote.some(a => a.von === ich.id && a.an === p.id), bekommen = stand.angebote.some(a => a.von === p.id && a.an === ich.id);
+      if (pakt) knopfe.push(['📜 Pakt kündigen', () => tun({ typ: 'paktbruch', ziel: p.id })]);
+      else knopfe.push([bekommen ? '🩸 Pakt annehmen' : angeboten ? '📜 Pakt angeboten …' : '📜 Pakt anbieten', () => tun({ typ: 'pakt', ziel: p.id }), angeboten && !bekommen]);
+      knopfe.push(['🤫 Anfunken', () => { tabWechseln('chat'); $('#chatAn').value = p.id; $('#chatText').focus(); popupZu(); }]);
+      if (!inRw) html += `<div class="leise" style="font-size:12px;margin-top:4px">Außer Reichweite (${reichweite(ich)})</div>`;
+    }
+  }
+  box.innerHTML = html + '<div class="knopfe"></div>';
+  for (const [t, f, aus] of knopfe) { const b = document.createElement('button'); b.textContent = t; b.disabled = !!aus; b.onclick = f; box.lastChild.appendChild(b); }
+  box.classList.remove('versteckt');
+  const bw = box.offsetWidth, bh = box.offsetHeight;
+  box.style.left = Math.min(breite - bw - 8, Math.max(8, mx + 12)) + 'px'; box.style.top = Math.min(hoehe - bh - 8, Math.max(8, my - bh / 2)) + 'px';
+}
+function popupZu() { $('#popup').classList.add('versteckt'); }
+
+/* ---------- Funken auf dem Startbildschirm ---------- */
+function startFunken() {
+  const c = $('#startFunken'), g = c.getContext('2d'), f = [];
+  const loop = () => { if ($('#start').classList.contains('versteckt')) return;
+    c.width = c.clientWidth; c.height = c.clientHeight;
+    const gr = g.createLinearGradient(0, 0, 0, c.height); gr.addColorStop(0, '#0d0b0a'); gr.addColorStop(1, '#3a1406'); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height);
+    if (f.length < 120) f.push({ x: Math.random() * c.width, y: c.height + 10, v: .5 + Math.random() * 1.5, r: 1 + Math.random() * 2.5, w: Math.random() * 7 });
+    for (const p of f) { p.y -= p.v; p.w += .03; p.x += Math.sin(p.w) * .6; if (p.y < -10) { p.y = c.height + 10; p.x = Math.random() * c.width; }
+      g.fillStyle = `rgba(255,${120 + p.r * 30 | 0},40,${Math.min(1, p.y / c.height + .2)})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill(); }
+    requestAnimationFrame(loop); };
+  loop();
+}
+
+requestAnimationFrame(zeichnen);
+init().catch(e => $('#startFehler').textContent = 'Server nicht erreichbar.');
+</script>
+</body>
+</html>
